@@ -2,7 +2,6 @@ import sc2
 from sc2 import Race, Difficulty
 from sc2.constants import *
 from sc2.player import Bot, Computer
-from sc2.position import Point2
 
 
 class RoachRush(sc2.BotAI):
@@ -14,18 +13,19 @@ class RoachRush(sc2.BotAI):
         # list of things that come from a drone
         self.from_drone = {SPAWNINGPOOL, EXTRACTOR, ROACHWARREN}
         # buildorder
-        self.bo = [DRONE, DRONE, SPAWNINGPOOL, DRONE, OVERLORD, DRONE, EXTRACTOR, QUEEN, ROACHWARREN, "END"]
+        self.bo = [DRONE, DRONE, SPAWNINGPOOL, DRONE, OVERLORD, EXTRACTOR, DRONE, ROACHWARREN, QUEEN, "END"]
         # current step of the buildorder
         self.bo_step = 0
 
     async def on_step(self, iteration):
         if iteration == 0:
             # only do on_step every nth step, 8 is standard
-            self._client.game_step = 8
-        # only try to build something if you have 50 minerals, otherwise you dont have enough anyway
-        if self.minerals >= 50:
+            self._client.game_step = 2
+        # only try to build something if you have 25 minerals, otherwise you dont have enough anyway
+        if self.minerals >= 25:
             await self.do_buildorder()
         await self.inject()
+        self.fill_extractors()
         # buildorder completed, start second phase of the bot
         if self.bo[self.bo_step] == "END":
             self.build_army()
@@ -37,12 +37,13 @@ class RoachRush(sc2.BotAI):
         # empty list to be ready for new actions in the next frame
         self.actions = []
 
-    async def on_building_construction_complete(self, unit):
-        # fill extractor with 3 drones once it is done
-        if unit.type_id == EXTRACTOR:
-            for n in range(3):
-                drone = self.units(DRONE)[n]
-                self.actions.append(drone.gather(unit))
+    def fill_extractors(self):
+        for extractor in self.units(EXTRACTOR):
+            # returns negative value if not enough workers
+            if extractor.surplus_harvesters < 0:
+                for n in range(-extractor.surplus_harvesters):
+                    drone = self.units(DRONE).collecting[n]
+                    self.actions.append(drone.gather(extractor))
 
     async def do_buildorder(self):
         current_step = self.bo[self.bo_step]
@@ -52,8 +53,8 @@ class RoachRush(sc2.BotAI):
         # check if current step needs larva
         if current_step in self.from_larva and self.units(LARVA):
             self.actions.append(self.units(LARVA).first.train(current_step))
-            self.bo_step += 1
             print(f"STEP {self.bo_step} {current_step.name}")
+            self.bo_step += 1
         # check if current step needs drone
         elif current_step in self.from_drone:
             if current_step == EXTRACTOR:
@@ -106,7 +107,7 @@ class RoachRush(sc2.BotAI):
                 # note that this only builds one unit per step
                 self.actions.append(self.units(LARVA).first.train(ROACH))
             # only build zergling if you cant build roach soon
-            elif self.minerals >= 50 and self.vespene <= 10:
+            elif self.minerals >= 50 and self.vespene <= 8:
                 self.actions.append(self.units(LARVA).first.train(ZERGLING))
 
     def send_idle_army(self):
