@@ -13,14 +13,27 @@ class RoachRush(sc2.BotAI):
         # list of things that come from a drone
         self.from_drone = {SPAWNINGPOOL, EXTRACTOR, ROACHWARREN}
         # buildorder
-        self.bo = [DRONE, DRONE, SPAWNINGPOOL, DRONE, OVERLORD, EXTRACTOR, DRONE, ROACHWARREN, QUEEN, "END"]
+        self.bo = [
+            DRONE,
+            SPAWNINGPOOL,
+            DRONE,
+            DRONE,
+            OVERLORD,
+            EXTRACTOR,
+            ROACHWARREN,
+            QUEEN,
+            DRONE,
+            DRONE,
+            DRONE,
+            "END",
+        ]
         # current step of the buildorder
         self.bo_step = 0
 
     async def on_step(self, iteration):
         if iteration == 0:
             # only do on_step every nth step, 8 is standard
-            self._client.game_step = 2
+            self._client.game_step = 8
         # only try to build something if you have 25 minerals, otherwise you dont have enough anyway
         if self.minerals >= 25:
             await self.do_buildorder()
@@ -53,7 +66,7 @@ class RoachRush(sc2.BotAI):
         # check if current step needs larva
         if current_step in self.from_larva and self.units(LARVA):
             self.actions.append(self.units(LARVA).first.train(current_step))
-            print(f"STEP {self.bo_step} {current_step.name}")
+            print(f"{self.time_formatted} STEP {self.bo_step} {current_step.name} ")
             self.bo_step += 1
         # check if current step needs drone
         elif current_step in self.from_drone:
@@ -71,11 +84,11 @@ class RoachRush(sc2.BotAI):
                         return
                 # pick position towards ramp to avoid building between hatchery and resources
                 buildings_around = self.units(HATCHERY).first.position.towards(self.main_base_ramp.depot_in_middle, 7)
-                position = await self.find_placement(building=current_step, near=buildings_around, placement_step=5)
+                position = await self.find_placement(building=current_step, near=buildings_around, placement_step=4)
             # got building position, pick worker that will get there the fastest
             worker = self.workers.closest_to(position)
             self.actions.append(worker.build(current_step, position))
-            print(f"STEP {self.bo_step} {current_step.name}")
+            print(f"{self.time_formatted} STEP {self.bo_step} {current_step.name}")
             self.bo_step += 1
         elif current_step == QUEEN:
             # tech requirement check
@@ -83,7 +96,7 @@ class RoachRush(sc2.BotAI):
                 return
             hatch = self.units(HATCHERY).first
             self.actions.append(hatch.train(QUEEN))
-            print(f"STEP {self.bo_step} {current_step.name}")
+            print(f"{self.time_formatted} STEP {self.bo_step} {current_step.name}")
             self.bo_step += 1
 
     async def inject(self):
@@ -113,7 +126,7 @@ class RoachRush(sc2.BotAI):
     def send_idle_army(self):
         army = (self.units(ROACH) | self.units(ZERGLING)).idle
         # wait with first attack until we have 5 units
-        if army.amount >= 5:
+        if army.amount >= 6:
             for unit in army:
                 # we dont see anything, go to enemy start location (only works on 2 player maps)
                 if not self.known_enemy_units:
