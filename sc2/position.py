@@ -57,7 +57,7 @@ class Pointlike(tuple):
             if not isinstance(p2pos, Point2):
                 p2pos = p2.position
             distance = (self[0] - p2pos[0]) ** 2 + (self[1] - p2pos[1]) ** 2
-            if distance < closest_distance_squared:
+            if distance <= closest_distance_squared:
                 closest_distance_squared = distance
                 closest_element = p2
         return closest_element
@@ -70,7 +70,7 @@ class Pointlike(tuple):
             if not isinstance(p2, Point2):
                 p2 = p2.position
             distance = (self[0] - p2[0]) ** 2 + (self[1] - p2[1]) ** 2
-            if distance < closest_distance_squared:
+            if distance <= closest_distance_squared:
                 closest_distance_squared = distance
         return closest_distance_squared ** 0.5
 
@@ -85,7 +85,7 @@ class Pointlike(tuple):
             if not isinstance(p2pos, Point2):
                 p2pos = p2.position
             distance = (self[0] - p2pos[0]) ** 2 + (self[1] - p2pos[1]) ** 2
-            if furthest_distance_squared < distance:
+            if furthest_distance_squared <= distance:
                 furthest_distance_squared = distance
                 furthest_element = p2
         return furthest_element
@@ -98,7 +98,7 @@ class Pointlike(tuple):
             if not isinstance(p2, Point2):
                 p2 = p2.position
             distance = (self[0] - p2[0]) ** 2 + (self[1] - p2[1]) ** 2
-            if furthest_distance_squared < distance:
+            if furthest_distance_squared <= distance:
                 furthest_distance_squared = distance
         return furthest_distance_squared ** 0.5
 
@@ -185,7 +185,7 @@ class Point2(Pointlike):
         Used in ramp finding """
         assert self != p
         distanceBetweenPoints = self.distance_to(p)
-        assert r > distanceBetweenPoints / 2
+        assert r >= distanceBetweenPoints / 2
         # remaining distance from center towards the intersection, using pythagoras
         remainingDistanceFromCenter = (r ** 2 - (distanceBetweenPoints / 2) ** 2) ** 0.5
         # center of both points

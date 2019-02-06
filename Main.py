@@ -2,15 +2,16 @@ import sc2
 from sc2 import Race, Difficulty
 from sc2.constants import *
 from sc2.player import Bot, Computer
+import random
 
 
 class RoachRush(sc2.BotAI):
     def __init__(self):
         # list of actions we do at each step
         self.actions = []
-        # list of things that come from a larva
+        # set of things that come from a larva
         self.from_larva = {DRONE, OVERLORD, ZERGLING, ROACH}
-        # list of things that come from a drone
+        # set of things that come from a drone
         self.from_drone = {SPAWNINGPOOL, EXTRACTOR, ROACHWARREN}
         # buildorder
         self.bo = [
@@ -178,9 +179,11 @@ class RoachRush(sc2.BotAI):
 
 
 def main():
+    # fixed race seems to use different strats than sc2.Race.Random
+    race = random.choice([sc2.Race.Zerg, sc2.Race.Terran, sc2.Race.Protoss, sc2.Race.Random])
     sc2.run_game(
         sc2.maps.get("BlueshiftLE"),
-        [Bot(Race.Zerg, RoachRush()), Computer(Race.Random, Difficulty.Hard)],
+        [Bot(Race.Zerg, RoachRush()), Computer(race, Difficulty.CheatVision)],
         realtime=False,
     )
 

@@ -1,5 +1,5 @@
-from .data import PlayerType, Race, Difficulty
 from .bot_ai import BotAI
+from .data import Difficulty, PlayerType, Race
 
 
 class AbstractPlayer:
@@ -23,7 +23,6 @@ class AbstractPlayer:
         if p_type == PlayerType.Computer:
             self.difficulty = difficulty
 
-
 class Human(AbstractPlayer):
     def __init__(self, race):
         super().__init__(PlayerType.Participant, race)
@@ -38,7 +37,7 @@ class Bot(AbstractPlayer):
         AI can be None if this player object is just used to inform the
         server about player types.
         """
-        assert isinstance(ai, BotAI) or ai is None, f"{ai, type(ai)}"
+        assert isinstance(ai, BotAI) or ai is None
         super().__init__(PlayerType.Participant, race)
         self.ai = ai
 
@@ -72,7 +71,7 @@ class Player(AbstractPlayer):
             PlayerType(proto.type),
             Race(proto.race_requested),
             Difficulty(proto.difficulty) if proto.HasField("difficulty") else None,
-            Race(proto.race_actual) if proto.HasField("race_actual") else None,
+            Race(proto.race_actual) if proto.HasField("race_actual") else None
         )
 
     def __init__(self, player_id, type, requested_race, difficulty=None, actual_race=None):
