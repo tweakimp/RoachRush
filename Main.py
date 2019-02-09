@@ -42,9 +42,9 @@ class RoachRush(sc2.BotAI):
         self.fill_extractors()
         # buildorder completed, start second phase of the bot
         if self.bo[self.bo_step] == "END":
-            self.build_army()
-            self.send_idle_army()
-            self.control_fighting_army()
+                self.build_army()
+                self.send_idle_army()
+                self.control_fighting_army()
             self.additional_overlords()
         # do list of actions of the current step
         await self.do_actions(self.actions)
@@ -182,9 +182,20 @@ class RoachRush(sc2.BotAI):
 def main():
     # fixed race seems to use different strats than sc2.Race.Random
     race = random.choice([sc2.Race.Zerg, sc2.Race.Terran, sc2.Race.Protoss, sc2.Race.Random])
+    random_map = random.choice(
+        [
+            "AutomatonLE",
+            "BlueshiftLE",
+            "CeruleanFallLE",
+            "KairosJunctionLE",
+            "ParaSiteLE",
+            "PortAleksanderLE",
+            # "StasisLE",
+            # "DarknessSanctuaryLE", # 4 player map, bot is not ready for that
+        ]
+    )
     sc2.run_game(
-        sc2.maps.get("BlueshiftLE"),
-        [Bot(Race.Zerg, RoachRush()), Computer(race, Difficulty.CheatVision)],
+        sc2.maps.get(random_map), [Bot(Race.Zerg, RoachRush()), Computer(race, Difficulty.CheatVision)], realtime=False
         realtime=False,
     )
 
