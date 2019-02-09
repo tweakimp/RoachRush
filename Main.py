@@ -56,7 +56,8 @@ class RoachRush(sc2.BotAI):
             # returns negative value if not enough workers
             if extractor.surplus_harvesters < 0:
                 for n in range(-extractor.surplus_harvesters):
-                    drone = self.units(DRONE).collecting[n]
+                    # prevent crash by only taking the minimum
+                    drone = self.units(DRONE).collecting[min(n, self.units(DRONE).amount)]
                     self.actions.append(drone.gather(extractor))
 
     async def do_buildorder(self):

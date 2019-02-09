@@ -13,7 +13,7 @@ from .position import Point2, Point3
 
 class PassengerUnit:
     def __init__(self, proto_data, game_data):
-        assert isinstance(game_data, GameData)
+        assert isinstance(game_data, GameData), f"game_data is not of type GameData"
         self._proto = proto_data
         self._game_data = game_data
         self.cache = {}
@@ -78,6 +78,25 @@ class PassengerUnit:
     @property_immutable_cache
     def is_psionic(self) -> bool:
         return Attribute.Psionic.value in self._type_data.attributes
+
+    @property_immutable_cache
+    def is_detector(self) -> bool:
+        """ Checks if the unit is a detector.
+        Has to be ready to detect and Photoncannons also need to be powered. """
+        return self.is_ready and (
+            self.type_id
+            in {
+                UnitTypeId.OBSERVER,
+                UnitTypeId.OBSERVERSIEGEMODE,
+                UnitTypeId.RAVEN,
+                UnitTypeId.MISSILETURRET,
+                UnitTypeId.OVERSEER,
+                UnitTypeId.OVERSEERSIEGEMODE,
+                UnitTypeId.SPORECRAWLER,
+            }
+            or self.type_id == UnitTypeId.PHOTONCANNON
+            and self.is_powered
+        )
 
     @property_immutable_cache
     def cargo_size(self) -> Union[float, int]:
@@ -549,7 +568,7 @@ class Unit(PassengerUnit):
 
     @property_immutable_cache
     def has_add_on(self) -> bool:
-        return not self.add_on_tag
+        return bool(self.add_on_tag)
 
     @property_immutable_cache
     def assigned_harvesters(self) -> int:
@@ -578,7 +597,7 @@ class Unit(PassengerUnit):
         return self(self._game_data.upgrades[upgrade.value].research_ability.id, *args, **kwargs)
 
     def has_buff(self, buff):
-        assert isinstance(buff, BuffId)
+        assert isinstance(buff, BuffId), f"{buff} is no BuffId"
         return buff.value in self._proto.buff_ids
 
     def warp_in(self, unit, placement, *args, **kwargs):
