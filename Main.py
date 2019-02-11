@@ -42,9 +42,9 @@ class RoachRush(sc2.BotAI):
         self.fill_extractors()
         # buildorder completed, start second phase of the bot
         if self.bo[self.bo_step] == "END":
-                self.build_army()
-                self.send_idle_army()
-                self.control_fighting_army()
+            self.build_army()
+            self.send_idle_army()
+            self.control_fighting_army()
             self.additional_overlords()
         # do list of actions of the current step
         await self.do_actions(self.actions)
@@ -195,7 +195,8 @@ def main():
         ]
     )
     sc2.run_game(
-        sc2.maps.get(random_map), [Bot(Race.Zerg, RoachRush()), Computer(race, Difficulty.CheatVision)], realtime=False
+        sc2.maps.get(random_map),
+        [Bot(Race.Zerg, RoachRush(), "EXAMPLE"), Computer(race, Difficulty.VeryHard)],
         realtime=False,
     )
 

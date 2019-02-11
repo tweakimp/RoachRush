@@ -83,8 +83,8 @@ class BotAI:
         """ The reason for len(ramp.upper) in {2, 5} is: 
         ParaSite map has 5 upper points, and most other maps have 2 upper points at the main ramp. The map Acolyte has 4 upper points at the wrong ramp (which is closest to the start position) """
         self.cached_main_base_ramp = min(
-            {ramp for ramp in self.game_info.map_ramps if len(ramp.upper) in {2, 5}},
-            key=(lambda r: self.start_location.distance_to(r.top_center)),
+            (ramp for ramp in self.game_info.map_ramps if len(ramp.upper) in {2, 5}),
+            key=lambda r: self.start_location._distance_squared(r.top_center),
         )
         return self.cached_main_base_ramp
 
@@ -132,7 +132,7 @@ class BotAI:
                 if all(point.distance_to(resource) >= (7 if resource in geysers else 6) for resource in resources)
             ]
             # choose best fitting point
-            result = min(possible_points, key=lambda p: sum(p.distance_to(resource) for resource in resources))
+            result = min(possible_points, key=lambda p: sum(p._distance_squared(resource.position) for resource in resources))
             centers[result] = resources
         """ Returns dict with the correct expansion position Point2 key, resources (mineral field, vespene geyser) as value """
         return centers
@@ -158,9 +158,10 @@ class BotAI:
 
         if not location:
             location = await self.get_next_expansion()
-        
-        if location:
-            await self.build(building, near=location, max_distance=max_distance, random_alternative=False, placement_step=1)
+        else:
+            await self.build(
+                building, near=location, max_distance=max_distance, random_alternative=False, placement_step=1
+            )
 
     async def get_next_expansion(self) -> Optional[Point2]:
         """Find next expansion location."""
@@ -372,7 +373,7 @@ class BotAI:
             if random_alternative:
                 return random.choice(possible)
             else:
-                return min(possible, key=lambda p: p.distance_to(near))
+                return min(possible, key=lambda p: p._distance_squared(near))
         return None
 
     def already_pending_upgrade(self, upgrade_type: UpgradeId) -> Union[int, float]:
@@ -579,14 +580,17 @@ class BotAI:
         self.workers: Units = self.units(race_worker[self.race])
         self.townhalls: Units = self.units(race_townhalls[self.race])
         self.geysers: Units = self.units(race_gas[self.race])
-
-        self.minerals: Union[float, int] = state.common.minerals
-        self.vespene: Union[float, int] = state.common.vespene
+        self.minerals: int = state.common.minerals
+        self.vespene: int = state.common.vespene
         self.supply_army: Union[float, int] = state.common.food_army
         self.supply_workers: Union[float, int] = state.common.food_workers  # Doesn't include workers in production
         self.supply_cap: Union[float, int] = state.common.food_cap
         self.supply_used: Union[float, int] = state.common.food_used
         self.supply_left: Union[float, int] = self.supply_cap - self.supply_used
+        self.idle_worker_count: int = state.common.idle_worker_count
+        self.army_count: int = state.common.army_count
+        self.warp_gate_count: int = state.common.warp_gate_count
+        self.larva_count: int = state.common.larva_count
         # reset cached values
         self.cached_known_enemy_structures = None
         self.cached_known_enemy_units = None

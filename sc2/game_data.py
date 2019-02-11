@@ -1,14 +1,14 @@
 from bisect import bisect_left
 from functools import lru_cache, reduce
-from typing import List, Dict, Set, Tuple, Any, Optional, Union  # mypy type checking
-
-from .data import Attribute, Race
-from .ids.ability_id import AbilityId
-from .ids.unit_typeid import UnitTypeId
-from .ids.effect_id import EffectId
-from .unit_command import UnitCommand
+from typing import Any, Dict, List, Optional, Set, Tuple, Union  # mypy type checking
 
 from .constants import ZERGLING
+from .data import Attribute, Race
+from .ids.ability_id import AbilityId
+from .ids.effect_id import EffectId
+from .ids.unit_typeid import UnitTypeId
+from .unit_command import UnitCommand
+
 
 # Set of parts of names of abilities that have no cost
 # E.g every ability that has 'Hold' in its name is free
@@ -221,10 +221,10 @@ class UnitTypeData:
             return None
         # Morphing a HIVE would have HATCHERY and LAIR in the tech alias - now subtract HIVE cost from LAIR cost instead of from HATCHERY cost
         tech_alias_cost_minerals = max(
-            [self._game_data.units[tech_alias.value].cost.minerals for tech_alias in self.tech_alias]
+            self._game_data.units[tech_alias.value].cost.minerals for tech_alias in self.tech_alias
         )
         tech_alias_cost_vespene = max(
-            [self._game_data.units[tech_alias.value].cost.vespene for tech_alias in self.tech_alias]
+            self._game_data.units[tech_alias.value].cost.vespene for tech_alias in self.tech_alias
         )
         return Cost(
             self._proto.mineral_cost - tech_alias_cost_minerals,
