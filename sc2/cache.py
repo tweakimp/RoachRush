@@ -1,17 +1,5 @@
-from functools import wraps
 from collections import Counter
-
-
-def cache_forever(f):
-    f.cache = {}
-
-    @wraps(f)
-    def inner(*args):
-        if args not in f.cache:
-            f.cache[args] = f(*args)
-        return f.cache[args]
-
-    return inner
+from functools import wraps
 
 
 def property_cache_forever(f):

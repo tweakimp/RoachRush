@@ -35,6 +35,7 @@ class RoachRush(sc2.BotAI):
         if iteration == 0:
             # only do on_step every nth step, 8 is standard
             self._client.game_step = 8
+
         # only try to build something if you have 25 minerals, otherwise you dont have enough anyway
         if self.minerals >= 25:
             await self.do_buildorder()
