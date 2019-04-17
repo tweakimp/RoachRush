@@ -128,26 +128,30 @@ class RoachRush(sc2.BotAI):
 
     def send_idle_army(self):
         army = (self.units(ROACH) | self.units(ZERGLING)).idle
+        # we can only fight ground units
+        ground_enemies = self.known_enemy_units.not_flying
         # wait with first attack until we have 5 units
         if army.amount >= 6:
             for unit in army:
                 # we dont see anything, go to enemy start location (only works on 2 player maps)
-                if not self.known_enemy_units:
+                if not ground_enemies:
                     self.actions.append(unit.attack(self.enemy_start_locations[0]))
                 # otherwise, attack closest unit
                 else:
-                    closest_enemy = self.known_enemy_units.closest_to(unit)
+                    closest_enemy = ground_enemies.closest_to(unit)
                     self.actions.append(unit.attack(closest_enemy))
 
     def control_fighting_army(self):
+        # we can only fight ground units
+        ground_enemies = self.known_enemy_units.not_flying
         # no need to do anything here if we dont see anything
-        if not self.known_enemy_units:
+        if not ground_enemies:
             return
         army = self.units(ROACH) | self.units(ZERGLING)
         # create selection of dangerous enemy units.
         # bunker and uprooted spine dont have weapon, but should be in that selection
         # also add spinecrawler and cannon if they are not ready yet and have no weapon
-        enemy_fighters = self.known_enemy_units.filter(
+        enemy_fighters = ground_enemies.filter(
             lambda u: u.can_attack or u.type_id in {BUNKER, SPINECRAWLERUPROOTED, SPINECRAWLER, PHOTONCANNON}
         )
         for unit in army:
@@ -155,15 +159,25 @@ class RoachRush(sc2.BotAI):
                 # select enemies in range
                 in_range_enemies = enemy_fighters.in_attack_range_of(unit)
                 if in_range_enemies:
-                    # attack enemy with lowest hp of the ones in range
-                    lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
-                    self.actions.append(unit.attack(lowest_hp))
+                    # special micro for ranged units
+                    if unit.ground_range > 1:
+                        # attack if weapon not on cooldown
+                        if unit.weapon_cooldown == 0:
+                            # attack enemy with lowest hp of the ones in range
+                            lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
+                            self.actions.append(unit.attack(lowest_hp))
+                        else:
+                            closest_enemy = enemy_fighters.closest_to(unit)
+                            self.actions.append(unit.move(closest_enemy.towards(unit, unit.range)))
+                    else:
+                        lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
+                        self.actions.append(unit.attack(lowest_hp))
                 else:
                     # no unit in range, go to closest
                     self.actions.append(unit.move(enemy_fighters.closest_to(unit)))
             else:
                 # no dangerous enemy at all, attack closest of everything
-                self.actions.append(unit.attack(self.known_enemy_units.closest_to(unit)))
+                self.actions.append(unit.attack(ground_enemies.closest_to(unit)))
 
     def additional_overlords(self):
         # build more overlords after buildorder
@@ -203,4 +217,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+        main()

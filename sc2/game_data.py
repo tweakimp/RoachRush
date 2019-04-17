@@ -114,6 +114,12 @@ class AbilityData:
 
 class UnitTypeData:
     def __init__(self, game_data, proto):
+        # The ability_id for lurkers is
+        # LURKERASPECTMPFROMHYDRALISKBURROWED_LURKERMPFROMHYDRALISKBURROWED
+        # instead of the correct MORPH_LURKER.
+        if proto.unit_id == UnitTypeId.LURKERMP.value:
+            proto.ability_id = AbilityId.MORPH_LURKER.value
+
         self._game_data = game_data
         self._proto = proto
 
@@ -168,17 +174,14 @@ class UnitTypeData:
 
     @property
     def tech_alias(self) -> Optional[List[UnitTypeId]]:
-        """ Building tech equality, e.g. OrbitalCommand is the same as CommandCenter """
-        """ Building tech equality, e.g. Hive is the same as Lair and Hatchery """
-        return_list = []
-        for tech_alias in self._proto.tech_alias:
-            if tech_alias in self._game_data.units:
-                return_list.append(UnitTypeId(tech_alias))
-        """ For Hive, this returns [UnitTypeId.Hatchery, UnitTypeId.Lair] """
-        """ For SCV, this returns None """
-        if return_list:
-            return return_list
-        return None
+        """ Building tech equality, e.g. OrbitalCommand is the same as CommandCenter
+        Building tech equality, e.g. Hive is the same as Lair and Hatchery
+        For Hive, this returns [UnitTypeId.Hatchery, UnitTypeId.Lair]
+        For SCV, this returns None """
+        return_list = [
+            UnitTypeId(tech_alias) for tech_alias in self._proto.tech_alias if tech_alias in self._game_data.units
+        ]
+        return return_list if return_list else None
 
     @property
     def unit_alias(self) -> Optional[UnitTypeId]:
