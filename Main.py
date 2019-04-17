@@ -1,8 +1,10 @@
+import itertools
+import random
+
 import sc2
-from sc2 import Race, Difficulty
+from sc2 import Difficulty, Race
 from sc2.constants import *
 from sc2.player import Bot, Computer
-import random
 
 
 class RoachRush(sc2.BotAI):
@@ -30,11 +32,17 @@ class RoachRush(sc2.BotAI):
         ]
         # current step of the buildorder
         self.bo_step = 0
+        # expansion we need to clear next, populated in 'send_idle_army'
+        self.army_target = None
+        # generator we need to cycle through expansions
+        self.clear_map = None
 
     async def on_step(self, iteration):
         if iteration == 0:
             # only do on_step every nth step, 8 is standard
             self._client.game_step = 8
+            # send a welcome message
+            await self.chat_send("(kappa)")
 
         # only try to build something if you have 25 minerals, otherwise you dont have enough anyway
         if self.minerals >= 25:
@@ -127,7 +135,7 @@ class RoachRush(sc2.BotAI):
                 self.actions.append(self.units(LARVA).first.train(ZERGLING))
 
     def send_idle_army(self):
-        army = (self.units(ROACH) | self.units(ZERGLING)).idle
+        army = self.units({ROACH, ZERGLING}).idle
         # we can only fight ground units
         ground_enemies = self.known_enemy_units.not_flying
         # wait with first attack until we have 5 units
@@ -135,7 +143,17 @@ class RoachRush(sc2.BotAI):
             for unit in army:
                 # we dont see anything, go to enemy start location (only works on 2 player maps)
                 if not ground_enemies:
-                    self.actions.append(unit.attack(self.enemy_start_locations[0]))
+                    # if we didnt start to clear the map already
+                    if not self.clear_map:
+                        # start with enemy starting location, than cycle through all expansions
+                        self.clear_map = itertools.cycle(
+                            [self.enemy_start_locations[0]] + list(self.expansion_locations.keys())
+                        )
+                        self.army_target = next(self.clear_map)
+                        # we can see the expansion but there seems to be nothing, get next
+                    if self.units.closer_than(7, self.army_target):
+                        self.army_target = next(self.clear_map)
+                    self.actions.append(unit.attack(self.army_target))
                 # otherwise, attack closest unit
                 else:
                     closest_enemy = ground_enemies.closest_to(unit)
@@ -168,7 +186,7 @@ class RoachRush(sc2.BotAI):
                             self.actions.append(unit.attack(lowest_hp))
                         else:
                             closest_enemy = enemy_fighters.closest_to(unit)
-                            self.actions.append(unit.move(closest_enemy.towards(unit, unit.range)))
+                            self.actions.append(unit.move(closest_enemy.position.towards(unit, unit.ground_range)))
                     else:
                         lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
                         self.actions.append(unit.attack(lowest_hp))
@@ -217,4 +235,4 @@ def main():
 
 
 if __name__ == "__main__":
-        main()
+    main()
