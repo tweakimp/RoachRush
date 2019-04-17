@@ -39,11 +39,19 @@ class RoachRush(sc2.BotAI):
 
     async def on_step(self, iteration):
         if iteration == 0:
-            # only do on_step every nth step, 8 is standard
-            self._client.game_step = 8
             # send a welcome message
             await self.chat_send("(kappa)")
-
+            # split workers
+            for drone in self.units(DRONE):
+                # find closest mineral patch
+                closest_mineral_patch = self.state.mineral_field.closest_to(drone)
+                self.actions.append(drone.gather(closest_mineral_patch))
+            # only do on_step every nth step, 8 is standard
+            self._client.game_step = 8 
+        if not self.units(DRONE):
+            # surrender phrase for ladder manager
+            await self.chat_send("(pineapple)")
+            return
         # only try to build something if you have 25 minerals, otherwise you dont have enough anyway
         if self.minerals >= 25:
             await self.do_buildorder()
@@ -135,8 +143,8 @@ class RoachRush(sc2.BotAI):
                 self.actions.append(self.units(LARVA).first.train(ZERGLING))
 
     def send_idle_army(self):        
-        # we can only fight ground units
-        ground_enemies = self.known_enemy_units.not_flying        
+        # we can only fight ground units and we dont want to fight larvae
+        ground_enemies = self.known_enemy_units.filter(lambda unit: not unit.is_flying and unit.type_id != LARVA)       
         # we dont see anything, go to enemy start location (only works on 2 player maps)
         if not ground_enemies:
             army = self.units.filter(lambda unit: unit.type_id in {ROACH, ZERGLING})
@@ -165,8 +173,8 @@ class RoachRush(sc2.BotAI):
                 self.actions.append(unit.attack(closest_enemy))
 
     def control_fighting_army(self):
-        # we can only fight ground units
-        ground_enemies = self.known_enemy_units.not_flying
+        # we can only fight ground units and we dont want to fight larvae
+        ground_enemies = self.known_enemy_units.filter(lambda unit: not unit.is_flying and unit.type_id != LARVA) 
         # no need to do anything here if we dont see anything
         if not ground_enemies:
             return
