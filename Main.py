@@ -150,7 +150,7 @@ class RoachRush(sc2.BotAI):
                             [self.enemy_start_locations[0]] + list(self.expansion_locations.keys())
                         )
                         self.army_target = next(self.clear_map)
-                        # we can see the expansion but there seems to be nothing, get next
+                    # we can see the expansion but there seems to be nothing, get next
                     if self.units.closer_than(7, self.army_target):
                         self.army_target = next(self.clear_map)
                     self.actions.append(unit.attack(self.army_target))
@@ -229,7 +229,7 @@ def main():
     )
     sc2.run_game(
         sc2.maps.get(random_map),
-        [Bot(Race.Zerg, RoachRush(), "EXAMPLE"), Computer(race, Difficulty.VeryHard)],
+        [Bot(Race.Zerg, RoachRush(), "RoachRush"), Computer(race, Difficulty.VeryHard)],
         realtime=False,
     )
 
