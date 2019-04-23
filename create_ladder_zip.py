@@ -1,6 +1,7 @@
 import os
 import zipfile
 
+
 def zipdir(path, ziph):
     # ziph is zipfile handle
     for root, _, files in os.walk(path):

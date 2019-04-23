@@ -158,13 +158,16 @@ class RoachRush(sc2.BotAI):
         # we cant build any army unit with less than 50 minerals
         if self.minerals < 50:
             return
+        # rebuild lost workers
+        if self.larvae and self.supply_workers + self.already_pending(UnitID.DRONE) < 15:
+            self.actions.append(self.larvae.first.train(UnitID.DRONE))
         # rebuild lost queen
         if self.units(UnitID.SPAWNINGPOOL).ready and not self.queens and self.units(UnitID.HATCHERY).idle:
             if self.can_afford(UnitID.QUEEN):
                 hatch = self.units(UnitID.HATCHERY).first
                 self.actions.append(hatch.train(UnitID.QUEEN))
             return
-        if self.units(UnitID.ROACHWARREN) and self.units(UnitID.ROACHWARREN).ready and self.larvae:
+        if self.larvae and self.units(UnitID.ROACHWARREN) and self.units(UnitID.ROACHWARREN).ready:
             if self.can_afford(UnitID.ROACH):
                 # note that this only builds one unit per step
                 self.actions.append(self.larvae.first.train(UnitID.ROACH))
@@ -221,6 +224,10 @@ class RoachRush(sc2.BotAI):
                 # select enemies in range
                 in_range_enemies = enemy_fighters.in_attack_range_of(unit)
                 if in_range_enemies:
+                    # prioritize works if in range
+                    workers = in_range_enemies({UnitID.DRONE, UnitID.SCV, UnitID.PROBE})
+                    if workers:
+                        in_range_enemies = workers
                     # special micro for ranged units
                     if unit.ground_range > 1:
                         # attack if weapon not on cooldown
