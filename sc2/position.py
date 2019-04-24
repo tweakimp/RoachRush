@@ -3,16 +3,14 @@ import math
 import random
 from typing import Any, Dict, List, Optional, Set, Tuple, Union  # for mypy type checking
 
+EPSILON = 10 ** -8
+
 
 def _sign(num):
     return math.copysign(1, num)
 
 
 class Pointlike(tuple):
-    @property
-    def rounded(self) -> "Pointlike":
-        return Point2((math.floor(self[0]), math.ceil(self[1])))
-
     @property
     def position(self) -> "Pointlike":
         return self
@@ -136,7 +134,7 @@ class Pointlike(tuple):
 
     def __eq__(self, other):
         try:
-            return all(a == b for a, b in itertools.zip_longest(self, other, fillvalue=0))
+            return all(abs(a - b) <= EPSILON for a, b in itertools.zip_longest(self, other, fillvalue=0))
         except:
             return False
 
@@ -148,6 +146,10 @@ class Point2(Pointlike):
     @classmethod
     def from_proto(cls, data):
         return cls((data.x, data.y))
+
+    @property
+    def rounded(self) -> "Point2":
+        return Point2((math.floor(self[0]), math.floor(self[1])))
 
     @property
     def x(self) -> Union[int, float]:
@@ -293,6 +295,10 @@ class Point3(Point2):
         return cls((data.x, data.y, data.z))
 
     @property
+    def rounded(self) -> "Point3":
+        return Point3((math.floor(self[0]), math.floor(self[1]), math.floor(self[2])))
+
+    @property
     def z(self) -> Union[int, float]:
         return self[2]
 
@@ -335,7 +341,7 @@ class Rect(tuple):
 
     @property
     def size(self) -> Size:
-        return Size(self[2], self[3])
+        return Size((self[2], self[3]))
 
     @property
     def center(self) -> Point2:

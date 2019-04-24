@@ -4,6 +4,7 @@ import random
 import sc2
 from sc2.ids.ability_id import AbilityId as AbilID
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
+from sc2.position import Point2
 
 
 class RoachRush(sc2.BotAI):
@@ -286,11 +287,12 @@ def main():
             "KairosJunctionLE",
             "ParaSiteLE",
             "PortAleksanderLE",
-            "StasisLE",
+            # "StasisLE",
             # "DarknessSanctuaryLE"  # 4 player map, bot is ready for it but has to find enemy first
         ]
     )
-    sc2.run_game(sc2.maps.get(random_map), [bot, builtin_bot], realtime=False)
+    # sc2.run_game(sc2.maps.get(random_map), [bot, builtin_bot], realtime=False)
+    sc2.run_game(sc2.maps.get("AutomatonLE"), [bot, builtin_bot], realtime=False)
 
 
 if __name__ == "__main__":

@@ -324,7 +324,7 @@ class BotAI:
         await self.do_actions(actions)
 
     @property
-    def owned_expansions(self):
+    def owned_expansions(self) -> Dict[Point2, Unit]:
         """List of expansions owned by the player."""
 
         owned = {}
@@ -668,13 +668,13 @@ class BotAI:
         https://github.com/Dentosal/python-sc2/blob/master/sc2/game_info.py#L17-L18 """
         assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
         pos = pos.position.to2.rounded
-        return self._game_info.placement_grid[pos] != 0
+        return self._game_info.placement_grid[pos] == 1
 
     def in_pathing_grid(self, pos: Union[Point2, Point3, Unit]) -> bool:
         """ Returns True if a unit can pass through a grid point. """
         assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
         pos = pos.position.to2.rounded
-        return self._game_info.pathing_grid[pos] == 0
+        return self._game_info.pathing_grid[pos] == 1
 
     def is_visible(self, pos: Union[Point2, Point3, Unit]) -> bool:
         """ Returns True if you have vision on a grid point. """
@@ -687,7 +687,7 @@ class BotAI:
         """ Returns True if there is creep on the grid point. """
         assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
         pos = pos.position.to2.rounded
-        return self.state.creep[pos] != 0
+        return self.state.creep[pos] == 1
 
     def _prepare_start(self, client, player_id, game_info, game_data):
         """Ran until game start to set game and player data."""

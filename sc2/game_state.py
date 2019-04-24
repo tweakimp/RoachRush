@@ -160,8 +160,10 @@ class GameState:
         self.dead_units: Set[int] = {dead_unit_tag for dead_unit_tag in self.observation_raw.event.dead_units}
 
         self.blips: Set[Blip] = {Blip(unit) for unit in blipUnits}
-        self.visibility: PixelMap = PixelMap(self.observation_raw.map_state.visibility)
-        self.creep: PixelMap = PixelMap(self.observation_raw.map_state.creep)
+        # self.visibility[point]: 0=Hidden, 1=Fogged, 2=Visible
+        self.visibility: PixelMap = PixelMap(self.observation_raw.map_state.visibility, mirrored=True)
+        # self.creep[point]: 0=No creep, 1=creep
+        self.creep: PixelMap = PixelMap(self.observation_raw.map_state.creep, mirrored=True)
 
         # Effects like ravager bile shot, lurker attack, everything in effect_id.py
         self.effects: Set[EffectData] = {EffectData(effect) for effect in self.observation_raw.effects}
