@@ -106,6 +106,7 @@ class BotAI:
         )
         return self.cached_main_base_ramp
 
+
     @property_cache_forever
     def expansion_locations(self) -> Dict[Point2, Units]:
         """
@@ -181,6 +182,7 @@ class BotAI:
             )
             centers[result] = resources
         return centers
+
 
     def _correct_zerg_supply(self):
         """ The client incorrectly rounds zerg supply down instead of up (see

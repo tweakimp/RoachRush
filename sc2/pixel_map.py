@@ -1,6 +1,7 @@
 from typing import Callable, FrozenSet, List, Set
 
 import numpy as np
+
 from .position import Point2
 
 
@@ -103,6 +104,5 @@ class PixelMap:
 
     def plot(self):
         import matplotlib.pyplot as plt
-
         plt.imshow(self.data_numpy, origin="lower")
         plt.show()
