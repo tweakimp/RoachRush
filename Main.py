@@ -278,21 +278,22 @@ def main():
             sc2.AIBuild.Air,
         ]
     )
-    builtin_bot = sc2.player.Computer(race, sc2.Difficulty.CheatInsane, build)
+    builtin_bot = sc2.player.Computer(race, sc2.Difficulty.VeryHard, build)
     random_map = random.choice(
         [
             "AutomatonLE",
-            "BlueshiftLE",
-            "CeruleanFallLE",
-            "KairosJunctionLE",
-            "ParaSiteLE",
-            "PortAleksanderLE",
+            # "BlueshiftLE",
+            # "CeruleanFallLE",
+            # "KairosJunctionLE",
+            # "ParaSiteLE",
+            # "PortAleksanderLE",
             # "StasisLE",
             # "DarknessSanctuaryLE"  # 4 player map, bot is ready for it but has to find enemy first
         ]
     )
-    # sc2.run_game(sc2.maps.get(random_map), [bot, builtin_bot], realtime=False)
-    sc2.run_game(sc2.maps.get("AutomatonLE"), [bot, builtin_bot], realtime=False)
+    from sc2.helpers.devtools import time_this
+    with time_this("gametime"):
+        sc2.run_game(sc2.maps.get(random_map), [bot, builtin_bot], realtime=False)
 
 
 if __name__ == "__main__":
