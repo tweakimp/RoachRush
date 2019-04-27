@@ -291,9 +291,7 @@ def main():
             # "DarknessSanctuaryLE"  # 4 player map, bot is ready for it but has to find enemy first
         ]
     )
-    from sc2.helpers.devtools import time_this
-    with time_this("gametime"):
-        sc2.run_game(sc2.maps.get(random_map), [bot, builtin_bot], realtime=False)
+    sc2.run_game(sc2.maps.get(random_map), [bot, builtin_bot], realtime=False)
 
 
 if __name__ == "__main__":
