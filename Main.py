@@ -1,5 +1,6 @@
 import itertools
 import random
+
 import sc2
 from sc2.ids.ability_id import AbilityId as AbilID
 from sc2.ids.unit_typeid import UnitTypeId as UnitID
@@ -225,23 +226,20 @@ class RoachRush(sc2.BotAI):
                 # select enemies in range
                 in_range_enemies = enemy_fighters.in_attack_range_of(unit)
                 if in_range_enemies:
-                    # prioritize works if in range
-                    workers = in_range_enemies({UnitID.DRONE, UnitID.SCV, UnitID.PROBE})
-                    if workers:
-                        in_range_enemies = workers
+                    # prioritize units if in range that are dangerous or repair
+                    # workers = in_range_enemies({UnitID.DRONE, UnitID.SCV, UnitID.PROBE})
+                    priority = in_range_enemies({UnitID.SCV, UnitID.IMMORTAL})
+                    if priority:
+                        in_range_enemies = priority
                     # special micro for ranged units
                     if unit.ground_range > 1:
                         # attack if weapon not on cooldown
                         if unit.weapon_cooldown == 0:
-                            # focus down pylons in range
-                            pylons = in_range_enemies(UnitID.PYLON)
-                            if pylons:
-                                in_range_enemies = pylons
                             # attack enemy with lowest hp of the ones in range
                             lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
                             self.actions.append(unit.attack(lowest_hp))
                         else:
-                            closest_enemy = enemy_fighters.closest_to(unit)
+                            closest_enemy = in_range_enemies.closest_to(unit)
                             # micro awy from closest unit, distance one shorter than range
                             # to let other friendly units get close enough as well and not block
                             self.actions.append(unit.move(closest_enemy.position.towards(unit, unit.ground_range - 1)))
@@ -250,13 +248,14 @@ class RoachRush(sc2.BotAI):
                         lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
                         self.actions.append(unit.attack(lowest_hp))
                 else:
-                    # no unit in range, go to closest enemy if unit near army center
-                    # depending on the army size
-                    if unit.distance_to(army_center) < army_size ** 1.5 - army_size ** 1.2:
-                        self.actions.append(unit.move(enemy_fighters.closest_to(unit)))
-                    # no unit in range, and unit is not near army center, group up
-                    else:
-                        self.actions.append(unit.move(army_center))
+                    self.actions.append(unit.move(enemy_fighters.closest_to(unit)))
+                    # # no unit in range, go to closest enemy if unit near army center
+                    # # depending on the army size
+                    # if unit.distance_to(army_center) < army_size ** 1.5 - army_size ** 1.2:
+                    #     self.actions.append(unit.move(enemy_fighters.closest_to(unit)))
+                    # # no unit in range, and unit is not near army center, group up
+                    # else:
+                    #     self.actions.append(unit.move(army_center))
             # no dangerous enemy at all, attack closest anyhting
             else:
                 self.actions.append(unit.attack(ground_enemies.closest_to(unit)))
@@ -297,14 +296,15 @@ def main():
     # choose a random map
     random_map = random.choice(
         [
-            "AutomatonLE",
-            "BlueshiftLE",
-            "CeruleanFallLE",
-            "KairosJunctionLE",
-            "ParaSiteLE",
-            "PortAleksanderLE",
-            "StasisLE",
-            "DarknessSanctuaryLE",  # 4 player map, bot is ready for it but has to find enemy first
+            "Acropolis",
+            # "AutomatonLE",
+            # "BlueshiftLE",
+            # "CeruleanFallLE",
+            # "KairosJunctionLE",
+            # "ParaSiteLE",
+            # "PortAleksanderLE",
+            # "StasisLE",
+            # "DarknessSanctuaryLE",  # 4 player map, bot is ready for it but has to find enemy first
         ]
     )
     # start the game with both bots

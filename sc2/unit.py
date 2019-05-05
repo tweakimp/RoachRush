@@ -404,35 +404,27 @@ class Unit(PassengerUnit):
     @property_immutable_cache
     def is_carrying_minerals(self) -> bool:
         """ Checks if a worker or MULE is carrying (gold-)minerals. """
-        return any(
-            buff in self.buffs for buff in {BuffId.CARRYMINERALFIELDMINERALS, BuffId.CARRYHIGHYIELDMINERALFIELDMINERALS}
-        )
+        return not {BuffId.CARRYMINERALFIELDMINERALS, BuffId.CARRYHIGHYIELDMINERALFIELDMINERALS}.isdisjoint(self.buffs)
 
     @property_immutable_cache
     def is_carrying_vespene(self) -> bool:
         """ Checks if a worker is carrying vespene gas. """
-        return any(
-            buff in self.buffs
-            for buff in {
-                BuffId.CARRYHARVESTABLEVESPENEGEYSERGAS,
-                BuffId.CARRYHARVESTABLEVESPENEGEYSERGASPROTOSS,
-                BuffId.CARRYHARVESTABLEVESPENEGEYSERGASZERG,
-            }
-        )
+        return not {
+            BuffId.CARRYHARVESTABLEVESPENEGEYSERGAS,
+            BuffId.CARRYHARVESTABLEVESPENEGEYSERGASPROTOSS,
+            BuffId.CARRYHARVESTABLEVESPENEGEYSERGASZERG,
+        }.isdisjoint(self.buffs)
 
     @property_immutable_cache
     def is_carrying_resource(self) -> bool:
         """ Checks if a worker is carrying a resource. """
-        return any(
-            buff in self.buffs
-            for buff in {
-                BuffId.CARRYMINERALFIELDMINERALS,
-                BuffId.CARRYHIGHYIELDMINERALFIELDMINERALS,
-                BuffId.CARRYHARVESTABLEVESPENEGEYSERGAS,
-                BuffId.CARRYHARVESTABLEVESPENEGEYSERGASPROTOSS,
-                BuffId.CARRYHARVESTABLEVESPENEGEYSERGASZERG,
-            }
-        )
+        return not {
+            BuffId.CARRYMINERALFIELDMINERALS,
+            BuffId.CARRYHIGHYIELDMINERALFIELDMINERALS,
+            BuffId.CARRYHARVESTABLEVESPENEGEYSERGAS,
+            BuffId.CARRYHARVESTABLEVESPENEGEYSERGASPROTOSS,
+            BuffId.CARRYHARVESTABLEVESPENEGEYSERGASZERG,
+        }.isdisjoint(self.buffs)
 
     @property_immutable_cache
     def detect_range(self) -> Union[int, float]:

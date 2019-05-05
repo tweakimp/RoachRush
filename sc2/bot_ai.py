@@ -148,7 +148,7 @@ class BotAI:
         # any resource in a group is closer than 6 to any resource of another group
 
         # Distance we group resources by
-        RESOURCE_SPREAD_THRESHOLD = 6
+        RESOURCE_SPREAD_THRESHOLD = 8.5
         minerals = self.state.mineral_field
         geysers = self.state.vespene_geyser
         all_resources = minerals | geysers
@@ -346,7 +346,7 @@ class BotAI:
         if len(worker_pool) > len(deficit_mining_places):
             all_minerals_near_base = [
                 mineral
-                for mineral in self.mineral_fields
+                for mineral in self.state.mineral_field
                 if any(mineral.distance_to(base) <= 8 for base in self.townhalls.ready)
             ]
         # distribute every worker in the pool
@@ -376,7 +376,7 @@ class BotAI:
                         mineral for mineral in self.state.mineral_field if mineral.distance_to(current_place) <= 8
                     ]
                     target_mineral = max(local_minerals, key=lambda mineral: mineral.mineral_contents)
-                    self.actions.append(worker.gather(target_mineral))
+                    actions.append(worker.gather(target_mineral))
             # more workers to distribute than free mining spots
             # send to closest if worker is doing nothing
             elif worker.is_idle and all_minerals_near_base:
@@ -783,7 +783,7 @@ class BotAI:
         """First step extra preparations. Must not be called before _prepare_step."""
         if self.townhalls:
             self._game_info.player_start_location = self.townhalls.first.position
-        self._game_info.map_ramps = self._game_info._find_ramps()
+        self._game_info.map_ramps, self._game_info.vision_blockers = self._game_info._find_ramps_and_vision_blockers()
 
     def _prepare_step(self, state, proto_game_info):
         # Set attributes from new state before on_step."""
