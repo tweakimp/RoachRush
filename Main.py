@@ -37,7 +37,7 @@ class RoachRush(sc2.BotAI):
         # generator we need to cycle through expansions, created in 'send_idle_army'
         self.clear_map = None
         # unit groups, created in 'set_unit_groups'
-        self.drones = None
+        self.workers = None
         self.larvae = None
         self.queens = None
         self.army = None
@@ -57,7 +57,7 @@ class RoachRush(sc2.BotAI):
         if iteration == 0:
             await self.start_step()
         # give up if no drones are left
-        if not self.drones:
+        if not self.workers:
             # surrender phrase for ladder manager
             await self.chat_send("(pineapple)")
             self.surrendered = True
@@ -71,13 +71,12 @@ class RoachRush(sc2.BotAI):
             self.build_additional_overlords()
             self.set_army_target()
             self.control_army()
-        # do list of actions of the current step
-        await self.do_actions(self.actions)
-        # empty list to be ready for new actions in the next frame
-        self.actions = []
+        # # do list of actions of the current step
+        # await self.do_actions(self.actions)
+        # # empty list to be ready for new actions in the next frame
+        # self.actions = []
 
     def set_unit_groups(self):
-        self.drones = self.units(UnitID.DRONE)
         self.larvae = self.units(UnitID.LARVA)
         self.queens = self.units(UnitID.QUEEN)
         self.army = self.units.filter(lambda unit: unit.type_id in {UnitID.ROACH, UnitID.ZERGLING})
@@ -86,28 +85,28 @@ class RoachRush(sc2.BotAI):
         # send a welcome message
         await self.chat_send("(kappa)")
         # split workers
-        for drone in self.drones:
+        for drone in self.workers:
             # find closest mineral patch
-            closest_mineral_patch = self.state.mineral_field.closest_to(drone)
-            self.actions.append(drone.gather(closest_mineral_patch))
+            closest_mineral_patch = self.mineral_field.closest_to(drone)
+            self.do(drone.gather(closest_mineral_patch))
         # prepare ordered expansions, sort by distance to start location
         self.ordered_expansions = sorted(
             self.expansion_locations.keys(), key=lambda expansion: expansion.distance_to(self.start_location)
         )
-        # only do on_step every nth step, 8 is standard
-        self._client.game_step = 8
+        # only do on_step every nth frame, 8 is standard
+        self._client.game_step = 2
 
     def fill_extractors(self):
-        for extractor in self.units(UnitID.EXTRACTOR):
+        for extractor in self.gas_buildings:
             # returns negative value if not enough workers
             if extractor.surplus_harvesters < 0:
-                drones_with_no_minerals = self.drones.filter(lambda unit: not unit.is_carrying_minerals)
+                drones_with_no_minerals = self.workers.filter(lambda unit: not unit.is_carrying_minerals)
                 if drones_with_no_minerals:
                     # surplus_harvesters is negative when workers are missing
                     for n in range(-extractor.surplus_harvesters):
                         # prevent crash by only taking the minimum
                         drone = drones_with_no_minerals[min(n, drones_with_no_minerals.amount) - 1]
-                        self.actions.append(drone.gather(extractor))
+                        self.do(drone.gather(extractor))
 
     async def do_buildorder(self):
         # only try to build something if you have 25 minerals, otherwise you dont have enough anyway
@@ -119,14 +118,14 @@ class RoachRush(sc2.BotAI):
             return
         # check if current step needs larva
         if current_step in self.from_larva and self.larvae:
-            self.actions.append(self.larvae.first.train(current_step))
+            self.do(self.larvae.first.train(current_step))
             print(f"{self.time_formatted} STEP {self.buildorder_step} {current_step.name} ")
             self.buildorder_step += 1
         # check if current step needs drone
         elif current_step in self.from_drone:
             if current_step == UnitID.EXTRACTOR:
                 # get geysers that dont have extractor on them
-                geysers = self.state.vespene_geyser.filter(
+                geysers = self.vespene_geyser.filter(
                     lambda g: all(g.position != e.position for e in self.units(UnitID.EXTRACTOR))
                 )
                 # pick closest
@@ -134,24 +133,29 @@ class RoachRush(sc2.BotAI):
             else:
                 if current_step == UnitID.ROACHWARREN:
                     # check tech requirement
-                    if not self.units(UnitID.SPAWNINGPOOL).ready:
+                    if not self.structures(UnitID.SPAWNINGPOOL).ready:
                         return
                 # pick position towards ramp to avoid building between hatchery and resources
-                buildings_around = self.units(UnitID.HATCHERY).first.position.towards(
+                buildings_around = self.townhalls(UnitID.HATCHERY).first.position.towards(
                     self.main_base_ramp.depot_in_middle, 7
                 )
-                position = await self.find_placement(building=current_step, near=buildings_around, placement_step=4)
+                # look for position until we find one that is not already used
+                position = None
+                while not position:
+                    position = await self.find_placement(building=current_step, near=buildings_around, placement_step=4)
+                    if any(building.position == position for building in self.units.structure):
+                        position = None
             # got building position, pick worker that will get there the fastest
             worker = self.workers.closest_to(position)
-            self.actions.append(worker.build(current_step, position))
+            self.do(worker.build(current_step, position))
             print(f"{self.time_formatted} STEP {self.buildorder_step} {current_step.name}")
             self.buildorder_step += 1
         elif current_step == UnitID.QUEEN:
             # tech requirement check
-            if not self.units(UnitID.SPAWNINGPOOL).ready:
+            if not self.structures(UnitID.SPAWNINGPOOL).ready:
                 return
-            hatch = self.units(UnitID.HATCHERY).first
-            self.actions.append(hatch.train(UnitID.QUEEN))
+            hatch = self.townhalls(UnitID.HATCHERY).first
+            self.do(hatch.train(UnitID.QUEEN))
             print(f"{self.time_formatted} STEP {self.buildorder_step} {current_step.name}")
             self.buildorder_step += 1
 
@@ -163,8 +167,8 @@ class RoachRush(sc2.BotAI):
             # check if queen can inject
             # you could also use queen.energy >= 25 to save the async call
             if AbilID.EFFECT_INJECTLARVA in abilities:
-                hatch = self.units(UnitID.HATCHERY).first
-                self.actions.append(queen(AbilID.EFFECT_INJECTLARVA, hatch))
+                hatch = self.townhalls(UnitID.HATCHERY).first
+                self.do(queen(AbilID.EFFECT_INJECTLARVA, hatch))
 
     def build_army(self):
         # we cant build any army unit with less than 50 minerals
@@ -172,20 +176,20 @@ class RoachRush(sc2.BotAI):
             return
         # rebuild lost workers
         if self.larvae and self.supply_workers + self.already_pending(UnitID.DRONE) < 15:
-            self.actions.append(self.larvae.first.train(UnitID.DRONE))
+            self.do(self.larvae.first.train(UnitID.DRONE))
         # rebuild lost queen
-        if self.units(UnitID.SPAWNINGPOOL).ready and not self.queens and self.units(UnitID.HATCHERY).idle:
+        if self.structures(UnitID.SPAWNINGPOOL).ready and not self.queens and self.townhalls(UnitID.HATCHERY).idle:
             if self.can_afford(UnitID.QUEEN):
-                hatch = self.units(UnitID.HATCHERY).first
-                self.actions.append(hatch.train(UnitID.QUEEN))
+                hatch = self.townhalls(UnitID.HATCHERY).first
+                self.do(hatch.train(UnitID.QUEEN))
             return
-        if self.larvae and self.units(UnitID.ROACHWARREN) and self.units(UnitID.ROACHWARREN).ready:
+        if self.larvae and self.structures(UnitID.ROACHWARREN) and self.structures(UnitID.ROACHWARREN).ready:
             if self.can_afford(UnitID.ROACH):
                 # note that this only builds one unit per step
-                self.actions.append(self.larvae.first.train(UnitID.ROACH))
+                self.do(self.larvae.first.train(UnitID.ROACH))
             # only build zergling if you cant build roach soon
             elif self.minerals >= 50 and self.vespene <= 8:
-                self.actions.append(self.larvae.first.train(UnitID.ZERGLING))
+                self.do(self.larvae.first.train(UnitID.ZERGLING))
 
     def set_army_target(self):
         # sets the next waypoint for the army in case there is nothing on the map
@@ -205,60 +209,50 @@ class RoachRush(sc2.BotAI):
         if not army:
             return
         # we can only fight ground units and we dont want to fight larvae
-        ground_enemies = self.known_enemy_units.filter(lambda unit: not unit.is_flying and unit.type_id != UnitID.LARVA)
+        ground_enemies = self.enemy_units.filter(lambda unit: not unit.is_flying and unit.type_id != UnitID.LARVA)
         # we dont see anything so start to clear the map
         if not ground_enemies:
             for unit in army:
-                self.actions.append(unit.attack(self.army_target))
+                self.do(unit.attack(self.army_target))
             return
-        # calculate army size and center for grouping
-        army_size = len(army)
-        army_center = army.center
         # create selection of dangerous enemy units.
         # bunker and uprooted spine dont have weapon, but should be in that selection
         # also add uprooted spinecrawler and bunker because they have no weapon and pylon to unpower protoss structures
         enemy_fighters = ground_enemies.filter(
             lambda u: u.can_attack
-            or u.type_id in {UnitID.BUNKER, UnitID.SPINECRAWLERUPROOTED, UnitID.SPINECRAWLER, UnitID.PYLON}
-        )
+            
+        ) + self.enemy_structures({UnitID.BUNKER, UnitID.SPINECRAWLERUPROOTED, UnitID.SPINECRAWLER, UnitID.PYLON})
         for unit in army:
             if enemy_fighters:
                 # select enemies in range
                 in_range_enemies = enemy_fighters.in_attack_range_of(unit)
                 if in_range_enemies:
-                    # prioritize units if in range that are dangerous or repair
-                    # workers = in_range_enemies({UnitID.DRONE, UnitID.SCV, UnitID.PROBE})
-                    priority = in_range_enemies({UnitID.SCV, UnitID.IMMORTAL})
-                    if priority:
-                        in_range_enemies = priority
+                    # prioritize workers
+                    workers = in_range_enemies({UnitID.DRONE, UnitID.SCV, UnitID.PROBE})
+                    if workers:
+                        in_range_enemies = workers
                     # special micro for ranged units
                     if unit.ground_range > 1:
                         # attack if weapon not on cooldown
                         if unit.weapon_cooldown == 0:
                             # attack enemy with lowest hp of the ones in range
                             lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
-                            self.actions.append(unit.attack(lowest_hp))
+                            self.do(unit.attack(lowest_hp))
                         else:
                             closest_enemy = in_range_enemies.closest_to(unit)
-                            # micro awy from closest unit, distance one shorter than range
+                            # micro away from closest unit, distance one shorter than range
                             # to let other friendly units get close enough as well and not block
-                            self.actions.append(unit.move(closest_enemy.position.towards(unit, unit.ground_range - 1)))
+                            self.do(unit.move(closest_enemy.position.towards(unit, unit.ground_range - 1)))
                     else:
                         # target fire with melee units
                         lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
-                        self.actions.append(unit.attack(lowest_hp))
+                        self.do(unit.attack(lowest_hp))
                 else:
-                    self.actions.append(unit.move(enemy_fighters.closest_to(unit)))
-                    # # no unit in range, go to closest enemy if unit near army center
-                    # # depending on the army size
-                    # if unit.distance_to(army_center) < army_size ** 1.5 - army_size ** 1.2:
-                    #     self.actions.append(unit.move(enemy_fighters.closest_to(unit)))
-                    # # no unit in range, and unit is not near army center, group up
-                    # else:
-                    #     self.actions.append(unit.move(army_center))
+                    # no unit in range,  go to closest
+                    self.do(unit.move(enemy_fighters.closest_to(unit)))
             # no dangerous enemy at all, attack closest anyhting
             else:
-                self.actions.append(unit.attack(ground_enemies.closest_to(unit)))
+                self.do(unit.attack(ground_enemies.closest_to(unit)))
 
     def build_additional_overlords(self):
         # build more overlords after buildorder
@@ -271,7 +265,7 @@ class RoachRush(sc2.BotAI):
             and self.supply_cap != 200
             and self.supply_left + self.already_pending(UnitID.OVERLORD) * 8 < 3 + self.supply_used // 7
         ):
-            self.actions.append(self.larvae.first.train(UnitID.OVERLORD))
+            self.do(self.larvae.first.train(UnitID.OVERLORD))
 
 
 def main():
@@ -296,9 +290,9 @@ def main():
     # choose a random map
     random_map = random.choice(
         [
-            "Acropolis",
+            # "Acropolis",
             # "AutomatonLE",
-            # "BlueshiftLE",
+            "BlueshiftLE",
             # "CeruleanFallLE",
             # "KairosJunctionLE",
             # "ParaSiteLE",

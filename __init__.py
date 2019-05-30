@@ -11,6 +11,7 @@ from sc2.player import Bot, Computer
 
 from sc2.sc2process import SC2Process
 from sc2.client import Client
+from sc2.protocol import ConnectionAlreadyClosed
 
 # Run ladder game
 # This lets python-sc2 connect to a LadderManager game: https://github.com/Cryptyc/Sc2LadderServer
@@ -75,7 +76,6 @@ async def join_ladder_game(
         if save_replay_as is not None:
             await client.save_replay(save_replay_as)
 
-    # where does "ConnectionAlreadyClosed" except come from
     except ConnectionAlreadyClosed:
         logging.error(f"Connection was closed before the game ended")
         return None
