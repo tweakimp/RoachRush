@@ -1,7 +1,10 @@
-from typing import Any, Dict, List, Optional, Set, Tuple, Union  # mypy type checking
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 
+from .constants import FakeEffectID, FakeEffectRadii
 from .data import Alliance, DisplayType
 from .ids.effect_id import EffectId
+from .ids.unit_typeid import UnitTypeId
 from .ids.upgrade_id import UpgradeId
 from .pixel_map import PixelMap
 from .position import Point2, Point3
@@ -11,6 +14,9 @@ from .score import ScoreDetails
 
 class Blip:
     def __init__(self, proto):
+        """
+        :param proto:
+        """
         self._proto = proto
 
     @property
@@ -73,16 +79,28 @@ class Common:
 
 
 class EffectData:
-    def __init__(self, proto):
+    def __init__(self, proto, fake=False):
+        """
+        :param proto:
+        :param fake:
+        """
         self._proto = proto
+        self.fake = fake
 
     @property
-    def id(self) -> EffectId:
-        return EffectId(self._proto.effect_id)
+    def id(self) -> Union[EffectId, str]:
+        if self.fake:
+            # Returns the string from constants.py, e.g. "KD8CHARGE"
+            return FakeEffectID[self._proto.unit_type]
+        else:
+            return EffectId(self._proto.effect_id)
 
     @property
     def positions(self) -> Set[Point2]:
-        return {Point2.from_proto(p) for p in self._proto.pos}
+        if self.fake:
+            return {Point2.from_proto(self._proto.pos)}
+        else:
+            return {Point2.from_proto(p) for p in self._proto.pos}
 
     @property
     def alliance(self) -> Alliance:
@@ -94,7 +112,10 @@ class EffectData:
 
     @property
     def radius(self) -> float:
-        return self._proto.radius
+        if self.fake:
+            return FakeEffectRadii[self._proto.unit_type]
+        else:
+            return self._proto.radius
 
     def __repr__(self) -> str:
         return f"{self.id} with radius {self.radius} at {self.positions}"
@@ -102,6 +123,9 @@ class EffectData:
 
 class GameState:
     def __init__(self, response_observation):
+        """
+        :param response_observation:
+        """
         self.response_observation = response_observation
         self.actions = response_observation.actions  # successful actions since last loop
         self.action_errors = response_observation.action_errors  # error actions since last loop

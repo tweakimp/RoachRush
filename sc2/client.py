@@ -1,5 +1,6 @@
+from __future__ import annotations
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 
 from s2clientprotocol import common_pb2 as common_pb
 from s2clientprotocol import debug_pb2 as debug_pb
@@ -24,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 class Client(Protocol):
     def __init__(self, ws):
+        """
+        :param ws:
+        """
         super().__init__(ws)
         self.game_step = 8
         self._player_id = None
@@ -32,6 +36,7 @@ class Client(Protocol):
         self._debug_lines = []
         self._debug_boxes = []
         self._debug_spheres = []
+        self._debug_draw_last_frame = False
 
         self._renderer = None
 
@@ -179,7 +184,10 @@ class Client(Protocol):
         self, start: Union[Unit, Point2, Point3], end: Union[Point2, Point3]
     ) -> Optional[Union[int, float]]:
         """ Caution: returns "None" when path not found
-        Try to combine queries with the function below because the pathing query is generally slow. """
+        Try to combine queries with the function below because the pathing query is generally slow.
+
+        :param start:
+        :param end: """
         assert isinstance(start, (Point2, Unit))
         assert isinstance(end, Point2)
         if isinstance(start, Point2):
@@ -210,6 +218,8 @@ class Client(Protocol):
         """ Usage: await self.query_pathings([[unit1, target2], [unit2, target2]])
         -> returns [distance1, distance2]
         Caution: returns 0 when path not found
+
+        :param zipped_list:
         """
         assert zipped_list, "No zipped_list"
         assert isinstance(zipped_list, list), f"{type(zipped_list)}"
@@ -240,7 +250,7 @@ class Client(Protocol):
         return [float(d.distance) for d in results.query.pathing]
 
     async def query_building_placement(
-        self, ability: AbilityId, positions: List[Union[Point2, Point3]], ignore_resources: bool = True
+        self, ability: AbilityData, positions: List[Union[Point2, Point3]], ignore_resources: bool = True
     ) -> List[ActionResult]:
         assert isinstance(ability, AbilityData)
         result = await self._execute(
@@ -288,7 +298,10 @@ class Client(Protocol):
         )
 
     async def toggle_autocast(self, units: Union[List[Unit], Units], ability: AbilityId):
-        """ Toggle autocast of all specified units """
+        """ Toggle autocast of all specified units
+
+        :param units:
+        :param ability: """
         assert units
         assert isinstance(units, list)
         assert all(isinstance(u, Unit) for u in units)
@@ -309,8 +322,10 @@ class Client(Protocol):
         )
 
     async def debug_create_unit(self, unit_spawn_commands: List[List[Union[UnitTypeId, int, Point2, Point3]]]):
-        """ Usage example (will spawn 1 marine in the center of the map for player ID 1):
-        await self._client.debug_create_unit([[UnitTypeId.MARINE, 1, self._game_info.map_center, 1]]) """
+        """ Usage example (will spawn 5 marines in the center of the map for player ID 1):
+        await self._client.debug_create_unit([[UnitTypeId.MARINE, 5, self._game_info.map_center, 1]])
+
+        :param unit_spawn_commands: """
         assert isinstance(unit_spawn_commands, list)
         assert unit_spawn_commands
         assert isinstance(unit_spawn_commands[0], list)
@@ -337,6 +352,9 @@ class Client(Protocol):
         )
 
     async def debug_kill_unit(self, unit_tags: Union[Unit, Units, List[int], Set[int]]):
+        """
+        :param unit_tags:
+        """
         if isinstance(unit_tags, Units):
             unit_tags = unit_tags.tags
         if isinstance(unit_tags, Unit):
@@ -369,7 +387,9 @@ class Client(Protocol):
         )
 
     async def move_camera_spatial(self, position: Union[Point2, Point3]):
-        """ Moves camera to the target position using the spatial aciton interface """
+        """ Moves camera to the target position using the spatial aciton interface
+
+        :param position: """
         from s2clientprotocol import spatial_pb2 as spatial_pb
 
         assert isinstance(position, (Point2, Point3))
@@ -449,15 +469,30 @@ class Client(Protocol):
                     ]
                 )
             )
+            self._debug_draw_last_frame = True
             self._debug_texts.clear()
             self._debug_lines.clear()
             self._debug_boxes.clear()
             self._debug_spheres.clear()
+        elif self._debug_draw_last_frame:
+            # Clear drawing if we drew last frame but nothing to draw this frame
+            await self._execute(
+                debug=sc_pb.RequestDebug(
+                    debug=[
+                        debug_pb.DebugCommand(draw=debug_pb.DebugDraw(text=None, lines=None, boxes=None, spheres=None))
+                    ]
+                )
+            )
+            self._debug_draw_last_frame = False
 
     def to_debug_color(self, color):
         """ Helper function for color conversion """
         if color is None:
             return debug_pb.Color(r=255, g=255, b=255)
+        # Need to check if not of type Point3 because Point3 inherits from tuple
+        elif isinstance(color, (tuple, list)) and not isinstance(color, Point3) and len(color) == 3:
+            return debug_pb.Color(r=color[0], g=color[1], b=color[2])
+        # In case color is of type Point3
         else:
             r = getattr(color, "r", getattr(color, "x", 255))
             g = getattr(color, "g", getattr(color, "y", 255))
@@ -586,6 +621,5 @@ class Client(Protocol):
         Caution:
             - The SC2 Client will crash if the game wasn't quicksaved
             - The bot step iteration counter will not reset
-            - self.state.game_loop will be set to zero after the quickload, and self.time is dependant on it
-        """
+            - self.state.game_loop will be set to zero after the quickload, and self.time is dependant on it """
         await self._execute(quick_load=sc_pb.RequestQuickLoad())

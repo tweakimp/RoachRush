@@ -8,8 +8,6 @@ from sc2.ids.unit_typeid import UnitTypeId as UnitID
 
 class RoachRush(sc2.BotAI):
     def __init__(self):
-        # list of actions we do at each step
-        self.actions = []
         # set of things that come from a larva
         self.from_larva = {UnitID.DRONE, UnitID.OVERLORD, UnitID.ZERGLING, UnitID.ROACH}
         # set of things that come from a drone
@@ -38,7 +36,7 @@ class RoachRush(sc2.BotAI):
         self.clear_map = None
         # unit groups, created in 'set_unit_groups'
         self.workers = None
-        self.larvae = None
+        self.larva = None
         self.queens = None
         self.army = None
         # flag we wave in case we want to give up
@@ -71,13 +69,8 @@ class RoachRush(sc2.BotAI):
             self.build_additional_overlords()
             self.set_army_target()
             self.control_army()
-        # # do list of actions of the current step
-        # await self.do_actions(self.actions)
-        # # empty list to be ready for new actions in the next frame
-        # self.actions = []
 
     def set_unit_groups(self):
-        self.larvae = self.units(UnitID.LARVA)
         self.queens = self.units(UnitID.QUEEN)
         self.army = self.units.filter(lambda unit: unit.type_id in {UnitID.ROACH, UnitID.ZERGLING})
 
@@ -117,8 +110,8 @@ class RoachRush(sc2.BotAI):
         if current_step == "END" or not self.can_afford(current_step):
             return
         # check if current step needs larva
-        if current_step in self.from_larva and self.larvae:
-            self.do(self.larvae.first.train(current_step))
+        if current_step in self.from_larva and self.larva:
+            self.do(self.larva.first.train(current_step))
             print(f"{self.time_formatted} STEP {self.buildorder_step} {current_step.name} ")
             self.buildorder_step += 1
         # check if current step needs drone
@@ -175,21 +168,21 @@ class RoachRush(sc2.BotAI):
         if self.minerals < 50:
             return
         # rebuild lost workers
-        if self.larvae and self.supply_workers + self.already_pending(UnitID.DRONE) < 15:
-            self.do(self.larvae.first.train(UnitID.DRONE))
+        if self.larva and self.supply_workers + self.already_pending(UnitID.DRONE) < 15:
+            self.do(self.larva.first.train(UnitID.DRONE))
         # rebuild lost queen
         if self.structures(UnitID.SPAWNINGPOOL).ready and not self.queens and self.townhalls(UnitID.HATCHERY).idle:
             if self.can_afford(UnitID.QUEEN):
                 hatch = self.townhalls(UnitID.HATCHERY).first
                 self.do(hatch.train(UnitID.QUEEN))
             return
-        if self.larvae and self.structures(UnitID.ROACHWARREN) and self.structures(UnitID.ROACHWARREN).ready:
+        if self.larva and self.structures(UnitID.ROACHWARREN) and self.structures(UnitID.ROACHWARREN).ready:
             if self.can_afford(UnitID.ROACH):
                 # note that this only builds one unit per step
-                self.do(self.larvae.first.train(UnitID.ROACH))
+                self.do(self.larva.first.train(UnitID.ROACH))
             # only build zergling if you cant build roach soon
             elif self.minerals >= 50 and self.vespene <= 8:
-                self.do(self.larvae.first.train(UnitID.ZERGLING))
+                self.do(self.larva.first.train(UnitID.ZERGLING))
 
     def set_army_target(self):
         # sets the next waypoint for the army in case there is nothing on the map
@@ -208,7 +201,7 @@ class RoachRush(sc2.BotAI):
         # dont do anything if we dont have an army
         if not army:
             return
-        # we can only fight ground units and we dont want to fight larvae
+        # we can only fight ground units and we dont want to fight larva
         ground_enemies = self.enemy_units.filter(lambda unit: not unit.is_flying and unit.type_id != UnitID.LARVA)
         # we dont see anything so start to clear the map
         if not ground_enemies:
@@ -261,11 +254,11 @@ class RoachRush(sc2.BotAI):
         # calculate if you need more supply
         if (
             self.can_afford(UnitID.OVERLORD)
-            and self.larvae
+            and self.larva
             and self.supply_cap != 200
             and self.supply_left + self.already_pending(UnitID.OVERLORD) * 8 < 3 + self.supply_used // 7
         ):
-            self.do(self.larvae.first.train(UnitID.OVERLORD))
+            self.do(self.larva.first.train(UnitID.OVERLORD))
 
 
 def main():

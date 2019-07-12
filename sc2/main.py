@@ -91,11 +91,13 @@ async def _play_game_ai(client, player_id, ai, realtime, step_time_limit, game_t
         time_window = SlidingTimeWindow(int(step_time_limit.get("window_size", 1)))
         time_limit = float(step_time_limit.get("time_limit", None))
 
+    ai._initialize_variables()
+
     game_data = await client.get_game_data()
     game_info = await client.get_game_info()
 
     # This game_data will become self._game_data in botAI
-    ai._prepare_start(client, player_id, game_info, game_data)
+    ai._prepare_start(client, player_id, game_info, game_data, realtime=realtime)
     state = await client.observation()
     # check game result every time we get the observation
     if client._game_result:
@@ -103,7 +105,6 @@ async def _play_game_ai(client, player_id, ai, realtime, step_time_limit, game_t
         return client._game_result[player_id]
     gs = GameState(state.observation)
     proto_game_info = await client._execute(game_info=sc_pb.RequestGameInfo())
-    ai._initialize_variables()
     ai._prepare_step(gs, proto_game_info)
     ai._prepare_first_step()
     try:
@@ -121,10 +122,15 @@ async def _play_game_ai(client, player_id, ai, realtime, step_time_limit, game_t
             state = await client.observation()
             # check game result every time we get the observation
             if client._game_result:
-                await ai.on_end(client._game_result[player_id])
+                try:
+                    await ai.on_end(client._game_result[player_id])
+                except TypeError as error:
+                    # print(f"caught type error {error}")
+                    # print(f"return {client._game_result[player_id]}")
+                    return client._game_result[player_id]
                 return client._game_result[player_id]
             gs = GameState(state.observation)
-            logger.debug(f"Score: {gs.score.summary}")
+            logger.debug(f"Score: {gs.score.score}")
 
             if game_time_limit and (gs.game_loop * 0.725 * (1 / 16)) > game_time_limit:
                 await ai.on_end(Result.Tie)
@@ -141,12 +147,7 @@ async def _play_game_ai(client, player_id, ai, realtime, step_time_limit, game_t
                     # Issue event liks unit created or unit destroyed
                     await ai.issue_events()
                     await ai.on_step(iteration)
-                    realtime_game_loop = ai.state.game_loop
-                    # Commit bot actions
-                    await ai._do_actions(ai.actions)
-                    ai.actions.clear()
-                    # Commit debug queries
-                    await ai._client._send_debug()
+                    realtime_game_loop = await ai._after_step()
             else:
                 if time_penalty_cooldown > 0:
                     time_penalty_cooldown -= 1
@@ -155,11 +156,7 @@ async def _play_game_ai(client, player_id, ai, realtime, step_time_limit, game_t
                 elif time_limit is None:
                     await ai.issue_events()
                     await ai.on_step(iteration)
-                    # Commit bot actions
-                    await ai._do_actions(ai.actions)
-                    ai.actions.clear()
-                    # Commit debug queries
-                    await ai._client._send_debug()
+                    await ai._after_step()
                 else:
                     out_of_budget = False
                     budget = time_limit - time_window.available
@@ -196,11 +193,7 @@ async def _play_game_ai(client, player_id, ai, realtime, step_time_limit, game_t
                             time_penalty_cooldown = int(time_penalty)
                             time_window.clear()
 
-                    # Commit bot actions
-                    await ai._do_actions(ai.actions)
-                    ai.actions.clear()
-                    # Commit debug queries
-                    await ai._client._send_debug()
+                    await ai._after_step()
         except Exception as e:
             if isinstance(e, ProtocolError) and e.is_game_over_error:
                 if realtime:
@@ -215,7 +208,12 @@ async def _play_game_ai(client, player_id, ai, realtime, step_time_limit, game_t
             logger.exception(f"AI step threw an error")  # DO NOT EDIT!
             logger.error(f"Error: {e}")
             logger.error(f"Resigning due to previous error")
-            await ai.on_end(Result.Defeat)
+            try:
+                await ai.on_end(Result.Defeat)
+            except TypeError as error:
+                # print(f"caught type error {error}")
+                # print(f"return {Result.Defeat}")
+                return Result.Defeat
             return Result.Defeat
 
         logger.debug(f"Running AI step: done")
