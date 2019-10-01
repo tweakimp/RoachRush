@@ -80,6 +80,7 @@ class AbilityData:
         self._game_data = game_data
         self._proto = proto
 
+        # What happens if we comment this out? Should this not be commented out? What is its purpose?
         assert self.id != 0
 
     def __repr__(self) -> str:
@@ -284,10 +285,10 @@ class Cost:
     def __repr__(self) -> str:
         return f"Cost({self.minerals}, {self.vespene})"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: Cost) -> bool:
         return self.minerals == other.minerals and self.vespene == other.vespene
 
-    def __ne__(self, other) -> bool:
+    def __ne__(self, other: Cost) -> bool:
         return self.minerals != other.minerals or self.vespene != other.vespene
 
     def __bool__(self) -> bool:
