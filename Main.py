@@ -284,8 +284,8 @@ def main():
     random_map = random.choice(
         [
             # "Acropolis",
-            # "AutomatonLE",
-            "BlueshiftLE",
+            "AutomatonLE",
+            # "BlueshiftLE",
             # "CeruleanFallLE",
             # "KairosJunctionLE",
             # "ParaSiteLE",
