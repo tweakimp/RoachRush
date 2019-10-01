@@ -1,0 +1,3 @@
+[submodule "pythonsc2"]
+	path = pythonsc2
+	url = https://github.com/BurnySc2/python-sc2.git
