@@ -206,15 +206,17 @@ class RoachRush(sc2.BotAI):
         # we dont see anything so start to clear the map
         if not ground_enemies:
             for unit in army:
+                if self.enemy_structures:
+                    self.do(unit.attack(self.enemy_structures.closest_to(unit)))
+                else:
                 self.do(unit.attack(self.army_target))
             return
         # create selection of dangerous enemy units.
         # bunker and uprooted spine dont have weapon, but should be in that selection
         # also add uprooted spinecrawler and bunker because they have no weapon and pylon to unpower protoss structures
-        enemy_fighters = ground_enemies.filter(
-            lambda u: u.can_attack
-            
-        ) + self.enemy_structures({UnitID.BUNKER, UnitID.SPINECRAWLERUPROOTED, UnitID.SPINECRAWLER, UnitID.PYLON})
+        enemy_fighters = ground_enemies.filter(lambda u: u.can_attack) + self.enemy_structures(
+            {UnitID.BUNKER, UnitID.SPINECRAWLERUPROOTED, UnitID.SPINECRAWLER, UnitID.PYLON}
+        )
         for unit in army:
             if enemy_fighters:
                 # select enemies in range
