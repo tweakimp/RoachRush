@@ -209,7 +209,7 @@ class RoachRush(sc2.BotAI):
                 if self.enemy_structures:
                     self.do(unit.attack(self.enemy_structures.closest_to(unit)))
                 else:
-                self.do(unit.attack(self.army_target))
+                    self.do(unit.attack(self.army_target))
             return
         # create selection of dangerous enemy units.
         # bunker and uprooted spine dont have weapon, but should be in that selection
