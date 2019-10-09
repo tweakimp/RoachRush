@@ -201,8 +201,8 @@ class RoachRush(sc2.BotAI):
         # dont do anything if we dont have an army
         if not army:
             return
-        # we can only fight ground units and we dont want to fight larva
-        ground_enemies = self.enemy_units.filter(lambda unit: not unit.is_flying and unit.type_id != UnitID.LARVA)
+        # we can only fight ground units and we dont want to fight larva or eggs
+        ground_enemies = self.enemy_units.filter(lambda unit: not unit.is_flying and unit.type_id not in {UnitID.LARVA, UnitID.EGG})
         # we dont see anything so start to clear the map
         if not ground_enemies:
             for unit in army:
