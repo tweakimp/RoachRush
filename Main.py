@@ -17,11 +17,12 @@ class RoachRush(sc2.BotAI):
             UnitID.DRONE,
             UnitID.SPAWNINGPOOL,
             UnitID.DRONE,
-            UnitID.DRONE,
-            UnitID.OVERLORD,
             UnitID.EXTRACTOR,
             UnitID.ROACHWARREN,
             UnitID.QUEEN,
+            UnitID.DRONE,
+            UnitID.OVERLORD,
+            UnitID.DRONE,
             UnitID.DRONE,
             UnitID.DRONE,
             UnitID.DRONE,
@@ -35,8 +36,6 @@ class RoachRush(sc2.BotAI):
         # generator we need to cycle through expansions, created in 'send_idle_army'
         self.clear_map = None
         # unit groups, created in 'set_unit_groups'
-        self.workers = None
-        self.larva = None
         self.queens = None
         self.army = None
         # flag we wave in case we want to give up
@@ -93,7 +92,9 @@ class RoachRush(sc2.BotAI):
         for extractor in self.gas_buildings:
             # returns negative value if not enough workers
             if extractor.surplus_harvesters < 0:
-                drones_with_no_minerals = self.workers.filter(lambda unit: not unit.is_carrying_minerals)
+                drones_with_no_minerals = self.workers.filter(
+                    lambda unit: not unit.is_carrying_minerals and unit.is_collecting
+                )
                 if drones_with_no_minerals:
                     # surplus_harvesters is negative when workers are missing
                     for n in range(-extractor.surplus_harvesters):
@@ -102,7 +103,7 @@ class RoachRush(sc2.BotAI):
                         self.do(drone.gather(extractor))
 
     async def do_buildorder(self):
-        # only try to build something if you have 25 minerals, otherwise you dont have enough anyway
+        # only try to build something if we have 25 minerals, otherwise we dont have enough anyway
         if self.minerals < 25:
             return
         current_step = self.buildorder[self.buildorder_step]
@@ -112,8 +113,6 @@ class RoachRush(sc2.BotAI):
         # check if current step needs larva
         if current_step in self.from_larva and self.larva:
             self.do(self.larva.first.train(current_step))
-            print(f"{self.time_formatted} STEP {self.buildorder_step} {current_step.name} ")
-            self.buildorder_step += 1
         # check if current step needs drone
         elif current_step in self.from_drone:
             if current_step == UnitID.EXTRACTOR:
@@ -138,19 +137,19 @@ class RoachRush(sc2.BotAI):
                     position = await self.find_placement(building=current_step, near=buildings_around, placement_step=4)
                     if any(building.position == position for building in self.units.structure):
                         position = None
-            # got building position, pick worker that will get there the fastest
-            worker = self.workers.closest_to(position)
+            # got building position, pick collecting worker without resources that will get there the fastest
+            worker = self.workers.filter(lambda unit: not unit.is_carrying_minerals and unit.is_collecting).closest_to(
+                position
+            )
             self.do(worker.build(current_step, position))
-            print(f"{self.time_formatted} STEP {self.buildorder_step} {current_step.name}")
-            self.buildorder_step += 1
         elif current_step == UnitID.QUEEN:
             # tech requirement check
             if not self.structures(UnitID.SPAWNINGPOOL).ready:
                 return
             hatch = self.townhalls(UnitID.HATCHERY).first
             self.do(hatch.train(UnitID.QUEEN))
-            print(f"{self.time_formatted} STEP {self.buildorder_step} {current_step.name}")
-            self.buildorder_step += 1
+        print(f"{self.time_formatted} STEP {self.buildorder_step:2} {current_step.name}")
+        self.buildorder_step += 1
 
     async def inject(self):
         if not self.queens:
@@ -158,7 +157,7 @@ class RoachRush(sc2.BotAI):
         for queen in self.queens.idle:
             abilities = await self.get_available_abilities(queen)
             # check if queen can inject
-            # you could also use queen.energy >= 25 to save the async call
+            # its also possible to use queen.energy >= 25 to save the async call
             if AbilID.EFFECT_INJECTLARVA in abilities:
                 hatch = self.townhalls(UnitID.HATCHERY).first
                 self.do(queen(AbilID.EFFECT_INJECTLARVA, hatch))
@@ -180,7 +179,8 @@ class RoachRush(sc2.BotAI):
             if self.can_afford(UnitID.ROACH):
                 # note that this only builds one unit per step
                 self.do(self.larva.first.train(UnitID.ROACH))
-            # only build zergling if you cant build roach soon
+                print(f"built roach at {self.time_formatted}")
+            # only build zergling if we cant build roach soon
             elif self.minerals >= 50 and self.vespene <= 8:
                 self.do(self.larva.first.train(UnitID.ZERGLING))
 
@@ -202,7 +202,9 @@ class RoachRush(sc2.BotAI):
         if not army:
             return
         # we can only fight ground units and we dont want to fight larva or eggs
-        ground_enemies = self.enemy_units.filter(lambda unit: not unit.is_flying and unit.type_id not in {UnitID.LARVA, UnitID.EGG})
+        ground_enemies = self.enemy_units.filter(
+            lambda unit: not unit.is_flying and unit.type_id not in {UnitID.LARVA, UnitID.EGG}
+        )
         # we dont see anything so start to clear the map
         if not ground_enemies:
             for unit in army:
@@ -235,25 +237,30 @@ class RoachRush(sc2.BotAI):
                             self.do(unit.attack(lowest_hp))
                         else:
                             closest_enemy = in_range_enemies.closest_to(unit)
-                            # micro away from closest unit, distance one shorter than range
+                            # micro away from closest unit
+                            # if more than 5 units friends are close, use distance one shorter than range
                             # to let other friendly units get close enough as well and not block
-                            self.do(unit.move(closest_enemy.position.towards(unit, unit.ground_range - 1)))
+                            if len(army.closer_than(5, unit.position)) >= 5:
+                                distance = unit.ground_range - 1
+                            else:
+                                distance = unit.ground_range
+                            self.do(unit.move(closest_enemy.position.towards(unit, distance)))
                     else:
                         # target fire with melee units
                         lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
                         self.do(unit.attack(lowest_hp))
                 else:
-                    # no unit in range,  go to closest
+                    # no unit in range, go to closest
                     self.do(unit.move(enemy_fighters.closest_to(unit)))
-            # no dangerous enemy at all, attack closest anyhting
+            # no dangerous enemy at all, attack closest anything
             else:
                 self.do(unit.attack(ground_enemies.closest_to(unit)))
 
     def build_additional_overlords(self):
         # build more overlords after buildorder
-        # you need larva and enough minerals
-        # prevent overlords if you have reached the cap already
-        # calculate if you need more supply
+        # we need larva and enough minerals
+        # prevent overlords if we have reached the cap already
+        # calculate if we need more supply
         if (
             self.can_afford(UnitID.OVERLORD)
             and self.larva
