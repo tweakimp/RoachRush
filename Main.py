@@ -92,15 +92,26 @@ class RoachRush(sc2.BotAI):
         for extractor in self.gas_buildings:
             # returns negative value if not enough workers
             if extractor.surplus_harvesters < 0:
-                drones_with_no_minerals = self.workers.filter(
-                    lambda unit: not unit.is_carrying_minerals and unit.is_collecting
+                drones_with_no_resource = self.workers.filter(
+                    lambda unit: not unit.is_carrying_resource and unit.is_collecting
                 )
-                if drones_with_no_minerals:
+                if drones_with_no_resource:
                     # surplus_harvesters is negative when workers are missing
                     for n in range(-extractor.surplus_harvesters):
                         # prevent crash by only taking the minimum
-                        drone = drones_with_no_minerals[min(n, drones_with_no_minerals.amount) - 1]
+                        drone = drones_with_no_resource[min(n, drones_with_no_resource.amount) - 1]
                         self.do(drone.gather(extractor))
+            # take out workers if we somehow have too many
+            elif extractor.surplus_harvesters > 0:
+                drones_in_extractor = self.workers.filter(
+                    lambda unit: not unit.is_carrying_resource and unit.order_target == extractor.tag
+                )
+                if drones_in_extractor:
+                    for n in range(extractor.surplus_harvesters):
+                        # prevent crash by only taking the minimum
+                        drone = drones_in_extractor[min(n, drones_in_extractor.amount) - 1]
+                        closest_mineral_patch = self.mineral_field.closest_to(drone)
+                        self.do(drone.gather(closest_mineral_patch))
 
     async def do_buildorder(self):
         # only try to build something if we have 25 minerals, otherwise we dont have enough anyway
@@ -208,16 +219,23 @@ class RoachRush(sc2.BotAI):
         # we dont see anything so start to clear the map
         if not ground_enemies:
             for unit in army:
+                # clear found structures
                 if self.enemy_structures:
-                    self.do(unit.attack(self.enemy_structures.closest_to(unit)))
+                    # focus down low hp structures first
+                    in_range_structures = self.enemy_structures.in_attack_range_of(unit)
+                    if in_range_structures:
+                        lowest_hp = min(in_range_structures, key=lambda e: e.health + e.shield)
+                        self.do(unit.attack(lowest_hp))
+                    else:
+                        self.do(unit.attack(self.enemy_structures.closest_to(unit)))
+                # check bases to find new structures
                 else:
                     self.do(unit.attack(self.army_target))
             return
         # create selection of dangerous enemy units.
-        # bunker and uprooted spine dont have weapon, but should be in that selection
-        # also add uprooted spinecrawler and bunker because they have no weapon and pylon to unpower protoss structures
+        # add pylon to unpower protoss structures
         enemy_fighters = ground_enemies.filter(lambda u: u.can_attack) + self.enemy_structures(
-            {UnitID.BUNKER, UnitID.SPINECRAWLERUPROOTED, UnitID.SPINECRAWLER, UnitID.PYLON}
+            {UnitID.BUNKER, UnitID.SPINECRAWLERUPROOTED, UnitID.SPINECRAWLER, UnitID.PYLON, UnitID.PHOTONCANNON}
         )
         for unit in army:
             if enemy_fighters:
