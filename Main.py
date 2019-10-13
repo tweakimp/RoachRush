@@ -257,7 +257,7 @@ class RoachRush(sc2.BotAI):
                             closest_enemy = in_range_enemies.closest_to(unit)
                             # micro away from closest unit
                             # if more than 5 units friends are close, use distance one shorter than range
-                            # to let other friendly units get close enough as well and not block
+                            # to let other friendly units get close enough as well and not block each other
                             if len(army.closer_than(5, unit.position)) >= 5:
                                 distance = unit.ground_range - 1
                             else:
