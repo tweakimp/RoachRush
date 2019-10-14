@@ -190,7 +190,6 @@ class RoachRush(sc2.BotAI):
             if self.can_afford(UnitID.ROACH):
                 # note that this only builds one unit per step
                 self.do(self.larva.first.train(UnitID.ROACH))
-                print(f"built roach at {self.time_formatted}")
             # only build zergling if we cant build roach soon
             elif self.minerals >= 50 and self.vespene <= 8:
                 self.do(self.larva.first.train(UnitID.ZERGLING))
@@ -254,15 +253,22 @@ class RoachRush(sc2.BotAI):
                             lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
                             self.do(unit.attack(lowest_hp))
                         else:
-                            closest_enemy = in_range_enemies.closest_to(unit)
                             # micro away from closest unit
-                            # if more than 5 units friends are close, use distance one shorter than range
-                            # to let other friendly units get close enough as well and not block each other
-                            if len(army.closer_than(5, unit.position)) >= 5:
-                                distance = unit.ground_range - 1
+                            # move further away if too many enemies are near
+                            friends_in_range = army.in_attack_range_of(unit)
+                            closest_enemy = in_range_enemies.closest_to(unit)
+                            if len(friends_in_range) <= len(in_range_enemies):
+                                distance = unit.ground_range + 1
+                                self.do(unit.move(closest_enemy.position.towards(unit, distance)))
                             else:
-                                distance = unit.ground_range
-                            self.do(unit.move(closest_enemy.position.towards(unit, distance)))
+                                
+                                # if more than 5 units friends are close, use distance one shorter than range
+                                # to let other friendly units get close enough as well and not block each other
+                                if len(army.closer_than(5, unit.position)) >= 5:
+                                    distance = unit.ground_range - 1
+                                else:
+                                    distance = unit.ground_range
+                                self.do(unit.move(closest_enemy.position.towards(unit, distance)))
                     else:
                         # target fire with melee units
                         lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
@@ -293,18 +299,20 @@ def main():
     bot = sc2.player.Bot(sc2.Race.Zerg, RoachRush())
     # fixed race seems to use different strats than sc2.Race.Random
     # choose a race for the opponent builtin bot
-    race = random.choice([sc2.Race.Zerg, sc2.Race.Terran, sc2.Race.Protoss, sc2.Race.Random])
+    race = sc2.Race.Terran
+    # race = random.choice([sc2.Race.Zerg, sc2.Race.Terran, sc2.Race.Protoss, sc2.Race.Random])
     # choose a strategy for the opponent builtin bot
-    build = random.choice(
-        [
-            sc2.AIBuild.RandomBuild,
-            sc2.AIBuild.Rush,
-            sc2.AIBuild.Timing,
-            sc2.AIBuild.Power,
-            sc2.AIBuild.Macro,
-            sc2.AIBuild.Air,
-        ]
-    )
+    build = sc2.AIBuild.Rush
+    # build = random.choice(
+    #     [
+    #         sc2.AIBuild.RandomBuild,
+    #         sc2.AIBuild.Rush,
+    #         sc2.AIBuild.Timing,
+    #         sc2.AIBuild.Power,
+    #         sc2.AIBuild.Macro,
+    #         sc2.AIBuild.Air,
+    #     ]
+    # )
     # create the opponent builtin bot instance
     builtin_bot = sc2.player.Computer(race, sc2.Difficulty.VeryHard, build)
     # choose a random map
