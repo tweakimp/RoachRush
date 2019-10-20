@@ -17,15 +17,12 @@ class RoachRush(sc2.BotAI):
             UnitID.DRONE,
             UnitID.SPAWNINGPOOL,
             UnitID.DRONE,
+            UnitID.DRONE,
             UnitID.EXTRACTOR,
-            UnitID.ROACHWARREN,
-            UnitID.QUEEN,
             UnitID.DRONE,
             UnitID.OVERLORD,
-            UnitID.DRONE,
-            UnitID.DRONE,
-            UnitID.DRONE,
-            UnitID.DRONE,
+            UnitID.ROACHWARREN,
+            UnitID.QUEEN,
             UnitID.OVERLORD,
             "END",
         ]
@@ -64,8 +61,8 @@ class RoachRush(sc2.BotAI):
         self.fill_extractors()
         # buildorder completed, start second phase of the bot
         if self.buildorder[self.buildorder_step] == "END":
-            self.build_army()
             self.build_additional_overlords()
+            self.build_army()
             self.set_army_target()
             self.control_army()
 
@@ -174,25 +171,42 @@ class RoachRush(sc2.BotAI):
                 self.do(queen(AbilID.EFFECT_INJECTLARVA, hatch))
 
     def build_army(self):
-        # we cant build any army unit with less than 50 minerals
+        # we cant build any unit with less than 50 minerals
         if self.minerals < 50:
             return
-        # rebuild lost workers
-        if self.larva and self.supply_workers + self.already_pending(UnitID.DRONE) < 15:
-            self.do(self.larva.first.train(UnitID.DRONE))
         # rebuild lost queen
-        if self.structures(UnitID.SPAWNINGPOOL).ready and not self.queens and self.townhalls(UnitID.HATCHERY).idle:
-            if self.can_afford(UnitID.QUEEN):
-                hatch = self.townhalls(UnitID.HATCHERY).first
-                self.do(hatch.train(UnitID.QUEEN))
+        if (
+            self.structures(UnitID.SPAWNINGPOOL).ready
+            and not self.queens
+            and not self.already_pending(UnitID.QUEEN)
+            and self.townhalls(UnitID.HATCHERY).idle
+            and self.can_afford(UnitID.QUEEN)
+        ):
+            hatch = self.townhalls(UnitID.HATCHERY).first
+            self.do(hatch.train(UnitID.QUEEN))
             return
-        if self.larva and self.structures(UnitID.ROACHWARREN) and self.structures(UnitID.ROACHWARREN).ready:
+        if self.larva and self.structures(UnitID.ROACHWARREN).ready:
             if self.can_afford(UnitID.ROACH):
                 # note that this only builds one unit per step
-                self.do(self.larva.first.train(UnitID.ROACH))
+                larva = self.larva.pop()
+                self.do(larva.train(UnitID.ROACH))
+                return
             # only build zergling if we cant build roach soon
             elif self.minerals >= 50 and self.vespene <= 8:
-                self.do(self.larva.first.train(UnitID.ZERGLING))
+                larva = self.larva.pop()
+                self.do(larva.train(UnitID.ZERGLING))
+                return
+
+        # rebuild lost workers if we have roaches
+        if (
+            self.larva
+            and self.units(UnitID.ROACH).ready
+            and self.supply_workers + self.already_pending(UnitID.DRONE) < 16
+            and self.can_afford(UnitID.DRONE)
+        ):
+            larva = self.larva.pop()
+            self.do(larva.train(UnitID.DRONE))
+            return
 
     def set_army_target(self):
         # sets the next waypoint for the army in case there is nothing on the map
@@ -223,18 +237,24 @@ class RoachRush(sc2.BotAI):
                     # focus down low hp structures first
                     in_range_structures = self.enemy_structures.in_attack_range_of(unit)
                     if in_range_structures:
-                        lowest_hp = min(in_range_structures, key=lambda e: e.health + e.shield)
-                        self.do(unit.attack(lowest_hp))
+                        lowest_hp = min(in_range_structures, key=lambda e: (e.health + e.shield, e.tag))
+                        if unit.weapon_cooldown == 0:
+                            self.do(unit.attack(lowest_hp))
+                        else:
+                            # dont go closer than 1 with roaches to use ranged attack
+                            if unit.ground_range > 1:
+                                self.do(unit.move(lowest_hp.position.towards(unit, 1 + lowest_hp.radius)))
+                            else:
+                                self.do(unit.move(lowest_hp.position))
                     else:
-                        self.do(unit.attack(self.enemy_structures.closest_to(unit)))
+                        self.do(unit.move(self.enemy_structures.closest_to(unit)))
                 # check bases to find new structures
                 else:
-                    self.do(unit.attack(self.army_target))
+                    self.do(unit.move(self.army_target))
             return
         # create selection of dangerous enemy units.
-        # add pylon to unpower protoss structures
         enemy_fighters = ground_enemies.filter(lambda u: u.can_attack) + self.enemy_structures(
-            {UnitID.BUNKER, UnitID.SPINECRAWLERUPROOTED, UnitID.SPINECRAWLER, UnitID.PYLON, UnitID.PHOTONCANNON}
+            {UnitID.BUNKER, UnitID.SPINECRAWLER, UnitID.PHOTONCANNON}
         )
         for unit in army:
             if enemy_fighters:
@@ -250,28 +270,28 @@ class RoachRush(sc2.BotAI):
                         # attack if weapon not on cooldown
                         if unit.weapon_cooldown == 0:
                             # attack enemy with lowest hp of the ones in range
-                            lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
+                            lowest_hp = min(in_range_enemies, key=lambda e: (e.health + e.shield, e.tag))
                             self.do(unit.attack(lowest_hp))
                         else:
                             # micro away from closest unit
                             # move further away if too many enemies are near
                             friends_in_range = army.in_attack_range_of(unit)
                             closest_enemy = in_range_enemies.closest_to(unit)
-                            if len(friends_in_range) <= len(in_range_enemies):
-                                distance = unit.ground_range + 1
-                                self.do(unit.move(closest_enemy.position.towards(unit, distance)))
+                            distance = unit.ground_range + unit.radius + closest_enemy.radius
+                            if (
+                                len(friends_in_range) <= len(in_range_enemies)
+                                and closest_enemy.ground_range <= unit.ground_range
+                            ):
+                                distance += 1
                             else:
-                                
                                 # if more than 5 units friends are close, use distance one shorter than range
                                 # to let other friendly units get close enough as well and not block each other
-                                if len(army.closer_than(5, unit.position)) >= 5:
-                                    distance = unit.ground_range - 1
-                                else:
-                                    distance = unit.ground_range
-                                self.do(unit.move(closest_enemy.position.towards(unit, distance)))
+                                if len(army.closer_than(7, unit.position)) >= 5:
+                                    distance -= -1
+                            self.do(unit.move(closest_enemy.position.towards(unit, distance)))
                     else:
                         # target fire with melee units
-                        lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
+                        lowest_hp = min(in_range_enemies, key=lambda e: (e.health + e.shield, e.tag))
                         self.do(unit.attack(lowest_hp))
                 else:
                     # no unit in range, go to closest
@@ -289,7 +309,7 @@ class RoachRush(sc2.BotAI):
             self.can_afford(UnitID.OVERLORD)
             and self.larva
             and self.supply_cap != 200
-            and self.supply_left + self.already_pending(UnitID.OVERLORD) * 8 < 3 + self.supply_used // 7
+            and self.supply_left + self.already_pending(UnitID.OVERLORD) * 8 < 2 + self.supply_used // 7
         ):
             self.do(self.larva.first.train(UnitID.OVERLORD))
 
@@ -299,20 +319,19 @@ def main():
     bot = sc2.player.Bot(sc2.Race.Zerg, RoachRush())
     # fixed race seems to use different strats than sc2.Race.Random
     # choose a race for the opponent builtin bot
-    race = sc2.Race.Terran
-    # race = random.choice([sc2.Race.Zerg, sc2.Race.Terran, sc2.Race.Protoss, sc2.Race.Random])
+    race = random.choice([sc2.Race.Zerg, sc2.Race.Terran, sc2.Race.Protoss, sc2.Race.Random])
     # choose a strategy for the opponent builtin bot
-    build = sc2.AIBuild.Rush
-    # build = random.choice(
-    #     [
-    #         sc2.AIBuild.RandomBuild,
-    #         sc2.AIBuild.Rush,
-    #         sc2.AIBuild.Timing,
-    #         sc2.AIBuild.Power,
-    #         sc2.AIBuild.Macro,
-    #         sc2.AIBuild.Air,
-    #     ]
-    # )
+    build = random.choice(
+        [
+            sc2.AIBuild.RandomBuild,
+            sc2.AIBuild.Rush,
+            sc2.AIBuild.Timing,
+            sc2.AIBuild.Power,
+            sc2.AIBuild.Macro,
+            sc2.AIBuild.Air,
+        ]
+    )
+
     # create the opponent builtin bot instance
     builtin_bot = sc2.player.Computer(race, sc2.Difficulty.VeryHard, build)
     # choose a random map
